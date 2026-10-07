@@ -1,0 +1,7 @@
+node_modules
+dist
+references/frames
+references/*.mov
+references/*.mp4
+screenshots
+.DS_Store
