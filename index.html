@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#4E3B37" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="format-detection" content="telephone=no" />
+    <title>Pop Hero</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='28' r='22' fill='%23FF5DA2' stroke='%2322163F' stroke-width='4'/%3E%3Cpath d='M26 52l6-6 6 6z' fill='%23FF5DA2' stroke='%2322163F' stroke-width='3'/%3E%3C/svg%3E"
+    />
+    <style>html,body{overscroll-behavior:none;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;background:linear-gradient(#a9eef0 0 50%,#4e3b37 50% 100%);width:100%;height:100%;margin:0;padding:0;overflow:hidden}body{position:fixed;top:0;bottom:0;left:0;right:0}#game{top:env(safe-area-inset-top);bottom:env(safe-area-inset-bottom);left:env(safe-area-inset-left);right:env(safe-area-inset-right);position:absolute}#game canvas{touch-action:none;display:block}#boot{color:#fff;text-shadow:0 2px #22163f;pointer-events:none;z-index:5;flex-direction:column;justify-content:center;align-items:center;gap:12px;font:600 22px system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Noto Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif;display:flex;position:fixed;top:0;bottom:0;left:0;right:0}#boot .err{color:#fff;white-space:pre-wrap;max-width:90vw;text-shadow:none;pointer-events:auto;-webkit-user-select:text;user-select:text;background:#c62828;border-radius:8px;padding:10px;font:13px/1.4 ui-monospace,Menlo,monospace}</style>
+    <script type="module" crossorigin src="./assets/index-CK8XgW9x.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-Bb-ddqFz.css">
+  </head>
+  <body>
+    <div id="game"></div>
+    <div id="boot"><div id="boot-msg">Loading…</div></div>
+    <script>
+      // Show load progress and any startup error on screen (no devtools on phones).
+      (function () {
+        function show(msg) {
+          var boot = document.getElementById('boot');
+          if (!boot) return;
+          var el = document.createElement('div');
+          el.className = 'err';
+          el.textContent = msg;
+          boot.appendChild(el);
+        }
+        window.addEventListener('error', function (e) {
+          show('Error: ' + (e.message || e.type) + (e.filename ? '\n' + e.filename + ':' + e.lineno : ''));
+        }, true);
+        window.addEventListener('unhandledrejection', function (e) {
+          show('Error: ' + (e.reason && (e.reason.stack || e.reason.message) || e.reason));
+        });
+        setTimeout(function () {
+          var m = document.getElementById('boot-msg');
+          if (m) m.textContent = 'Still loading… (check Wi-Fi)';
+        }, 12000);
+      })();
+    </script>
+  </body>
+</html>
