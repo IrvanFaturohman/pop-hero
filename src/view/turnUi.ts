@@ -59,8 +59,9 @@ export class TurnUi {
       return;
     }
     this.label.setText(msg).setColor(color);
-    // your turn: on the room border; battle phases: under the top HUD (camera zooms into the battle)
-    this.pill.setY(phase === 'blow' ? config.layout.roomBottom - 8 : 128);
+    // your turn: on the room border; battle phases: under the top HUD and boss bar (camera zooms
+    // into the battle)
+    this.pill.setY(phase === 'blow' ? config.layout.roomBottom - 8 : 262);
     const pw = this.label.width + 36;
     this.bg.clear();
     this.bg.fillStyle(hex(config.palette.outline), 0.92);
@@ -71,7 +72,7 @@ export class TurnUi {
 
   /** Live "n LEFT" count while blowing. */
   setLeft(left: number): void {
-    if (this.phase !== 'blow' || left === this.left) return;
+    if (this.phase !== 'blow' || left === this.left || left < 0) return;
     if (left > 0) this.setPhase('blow', left);
     else {
       this.left = 0;

@@ -13,6 +13,9 @@ export interface DebugHooks {
   restart(): void;
   skipWave(): void;
   goBoss(): void;
+  goElite(): void;
+  /** +3 yellow stars, +1 red star (try card prices). */
+  addStars(): void;
   applyAudio(): void;
   info(): { particles: number; seed: number; pattern: string; ammo: number };
 }
@@ -113,7 +116,9 @@ export class DebugPanel {
       this.rebuildPatternFolder();
     });
     f.addButton({ title: 'Skip wave' }).on('click', () => this.hooks.skipWave());
-    f.addButton({ title: 'Go to boss' }).on('click', () => this.hooks.goBoss());
+    f.addButton({ title: 'Go to elite (wave 5)' }).on('click', () => this.hooks.goElite());
+    f.addButton({ title: 'Go to boss (wave 10)' }).on('click', () => this.hooks.goBoss());
+    f.addButton({ title: '+3 stars, +1 red star' }).on('click', () => this.hooks.addStars());
     f.addButton({ title: 'Restart run' }).on('click', () => this.hooks.restart());
   }
 
@@ -235,16 +240,16 @@ export class DebugPanel {
       tierRing: [0, 60, 1],
     });
     const h = this.pane.addFolder({ title: 'Hero & enemies', expanded: false });
-    addNumbers(h, config.hero, { hp: [10, 500, 5], volleyTime: [0.3, 5, 0.1], minFireRate: [1, 60, 1], maxFireRate: [1, 120, 1], bulletSpeed: [200, 3000, 10], bulletDamage: [1, 10, 1], recoil: [0, 20, 1] });
-    for (const k of ['grunt', 'runner', 'tank', 'boss'] as const) {
-      addNumbers(h, config.enemies[k] as unknown as Record<string, unknown>, { hp: [1, 2000, 1], damage: [0, 50, 1] });
+    addNumbers(h, config.hero, { hp: [10, 500, 5], volleyTime: [0.3, 12, 0.1], minFireRate: [0.5, 60, 0.1], maxFireRate: [0.5, 120, 0.1], bulletSpeed: [200, 3000, 10], bulletDamage: [1, 200, 1], recoil: [0, 20, 1] });
+    for (const k of ['grunt', 'runner', 'tank', 'flier', 'brute', 'ratking', 'mole'] as const) {
+      addNumbers(h, config.enemies[k] as unknown as Record<string, unknown>, { hp: [1, 10000, 10], damage: [0, 100, 1] });
     }
     h.addBinding(config.haptics, 'enabled', { label: 'haptics' });
     const tf = this.pane.addFolder({ title: 'Turns, lock & chain', expanded: false });
-    addNumbers(tf, config.turns, { balloonsPerTurn: [1, 6, 1], unlockDelay: [0, 2, 0.05], enemyDelay: [0, 2, 0.05], clearTime: [0.5, 5, 0.1] });
-    addNumbers(tf, config.boss, { lock: [10, 300, 1], slamEvery: [1, 6, 1], summonEvery: [1, 8, 1], summonCount: [0, 8, 1] });
+    addNumbers(tf, config.turns, { balloonsPerTurn: [0, 6, 1], unlockDelay: [0, 2, 0.05], enemyDelay: [0, 2, 0.05], clearTime: [0.5, 5, 0.1] });
+    for (const k of ['ratking', 'mole'] as const) addNumbers(tf, config.bosses[k], { slamEvery: [1, 6, 1], summonEvery: [1, 8, 1], summonCount: [0, 8, 1] });
     addNumbers(tf, config.rope, { slack: [1, 1.3, 0.005], gravity: [0, 1500, 10], iterations: [1, 40, 1], pointShare: [0.1, 1, 0.05] });
-    addNumbers(tf, config.effects, { burnDamage: [0, 10, 1], burnTurns: [1, 6, 1], bombDamageMult: [0, 5, 0.1], bombRadius: [20, 300, 5], healMult: [0, 3, 0.1] });
+    addNumbers(tf, config.effects, { burnDamage: [0, 100, 1], burnTurns: [1, 6, 1], bombDamageMult: [0, 200, 1], bombRadius: [20, 300, 5], healMult: [0, 20, 0.1] });
     addNumbers(tf, config.camera, { battleZoom: [1, 1.6, 0.01], battleCenterY: [200, 800, 5] });
   }
 

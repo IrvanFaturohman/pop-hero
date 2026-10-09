@@ -9,7 +9,14 @@ export interface EnemyStats {
   damage: number; // per attack, every enemy turn
   radius: number; // px
   knockback: number; // px per hit (pushed back to the right)
+  /** Knockback cards can stun it. */
+  small: boolean;
+  /** Hovers above the road (bat). */
+  fly: boolean;
 }
+
+/** Flying enemies hover this far above their ground slot. */
+export const FLY_HEIGHT = 70;
 
 export function enemyStats(kind: EnemyKind): EnemyStats {
   return config.enemies[kind];
@@ -21,10 +28,11 @@ export function slotPos(i: number, kind: EnemyKind): { x: number; y: number } {
   const lanes = ec.laneOffsets.length;
   const col = Math.floor(i / lanes);
   const lane = i % lanes;
+  const st = enemyStats(kind);
   return {
     // back lanes sit a little further right so the group reads as a crowd, not a stack
     x: ec.slotX0 + col * ec.slotDX + (lane - (lanes - 1) / 2) * 16,
-    y: config.layout.groundY - enemyStats(kind).radius * 0.8 + ec.laneOffsets[lane],
+    y: config.layout.groundY - st.radius * 0.8 + ec.laneOffsets[lane] - (st.fly ? FLY_HEIGHT : 0),
   };
 }
 
@@ -44,6 +52,10 @@ export class Enemy {
   burn = 0;
   /** Frozen by ice bullets: skips its next attack. */
   frozen = false;
+  /** Knocked back hard (Knockback card): skips its next attack. */
+  stunned = false;
+  /** Volley id of the last volley that hit it (one Knockback roll per volley). */
+  lastVolley = -1;
   /** Movement tween (walk-in / formation slide). */
   private fromX = 0;
   private fromY = 0;

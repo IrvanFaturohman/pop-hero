@@ -159,7 +159,7 @@ export class HeroView {
   /** HP bar under the hero: fill eases down, a white chip follows after a delay, shakes when hit. */
   private updateBars(battle: Battle, dt: number): void {
     const L = config.layout;
-    const hpFrac = battle.hp / config.hero.hp;
+    const hpFrac = battle.hp / battle.maxHp;
     this.hpShown += (hpFrac - this.hpShown) * Math.min(1, dt * 18);
     if (this.chip < this.hpShown) this.chip = this.hpShown;
     if (this.chipWait > 0) this.chipWait -= dt;

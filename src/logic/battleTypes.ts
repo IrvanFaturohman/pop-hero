@@ -5,12 +5,18 @@ import type { Enemy } from './enemies';
 
 export type BattleEvent =
   | { type: 'shoot'; x: number; y: number; kind: AmmoKind }
-  | { type: 'hit'; e: Enemy; x: number; y: number; dmg: number; crit: boolean; kind: AmmoKind }
+  | { type: 'hit'; e: Enemy; x: number; y: number; dmg: number; crit: boolean; kind: AmmoKind; exec: boolean }
   | { type: 'kill'; e: Enemy }
   | { type: 'spawn'; e: Enemy }
   | { type: 'attackStart'; e: Enemy }
   | { type: 'attack'; e: Enemy; dmg: number }
   | { type: 'frozenSkip'; e: Enemy }
+  /** Knockback card: the enemy was knocked back and loses this attack. */
+  | { type: 'stunSkip'; e: Enemy }
+  /** Knockback card: a small enemy got knocked back hard by the volley. */
+  | { type: 'stun'; e: Enemy }
+  /** Second Wind evolution saved the hero from a fatal hit. */
+  | { type: 'secondWind'; hp: number }
   | { type: 'burn'; e: Enemy; dmg: number }
   | { type: 'bombThrow'; x: number; y: number; tx: number; ty: number }
   | { type: 'bombBoom'; x: number; y: number; r: number }
@@ -35,9 +41,44 @@ export interface Bullet {
   vx: number;
   vy: number;
   dmg: number;
+  /** Damage of the shot before bounces (bounces deal a share of it). */
+  base: number;
   kind: AmmoKind;
-  pierce: number;
+  bounces: number;
   lastHit: number;
+}
+
+/** Hero numbers driven by ability cards (recomputed from the levels on every pick). */
+export interface HeroMods {
+  damageMult: number;
+  critChance: number;
+  critMult: number;
+  extraShots: number;
+  extraMult: number;
+  bounces: number;
+  bounceMult: number;
+  lifesteal: number;
+  stunChance: number;
+  hpMult: number;
+  execution: boolean;
+  secondWind: boolean;
+}
+
+export function baseMods(): HeroMods {
+  return {
+    damageMult: 1,
+    critChance: 0,
+    critMult: config.hero.critMult,
+    extraShots: 0,
+    extraMult: 0,
+    bounces: 0,
+    bounceMult: 0,
+    lifesteal: 0,
+    stunChance: 0,
+    hpMult: 1,
+    execution: false,
+    secondWind: false,
+  };
 }
 
 export interface Bomb {

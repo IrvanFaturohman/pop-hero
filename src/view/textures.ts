@@ -23,6 +23,10 @@ export function balloonColor(type: BalloonType, tint = 0): number {
       return hex(p.balloonBomb);
     case 'heal':
       return hex(p.balloonHeal);
+    case 'star':
+      return hex(p.balloonStar);
+    case 'redstar':
+      return hex(p.balloonRedStar);
     default:
       return hex(p.balloonColors[tint % p.balloonColors.length]);
   }

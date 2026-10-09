@@ -7,7 +7,7 @@ import { TAU } from '../logic/math';
 import { strings } from '../strings';
 
 const FONT = 'Fredoka, system-ui, sans-serif';
-const BAR = { x: 360, y: 118, w: 440, h: 22 };
+const BAR = { x: 360, y: 214, w: 440, h: 22 };
 
 export class BossView {
   private bar: Phaser.GameObjects.Graphics;
@@ -22,7 +22,7 @@ export class BossView {
   constructor(scene: Phaser.Scene, ui: Phaser.GameObjects.Layer, world: Phaser.GameObjects.Layer, textRes: number) {
     this.bar = scene.add.graphics().setVisible(false);
     this.name = scene.add
-      .text(BAR.x, BAR.y - 24, strings.bossName, { fontFamily: FONT, fontSize: '24px', fontStyle: '700', color: '#ffffff', stroke: config.palette.outline, strokeThickness: 7, resolution: textRes })
+      .text(BAR.x, BAR.y - 24, '', { fontFamily: FONT, fontSize: '24px', fontStyle: '700', color: '#ffffff', stroke: config.palette.outline, strokeThickness: 7, resolution: textRes })
       .setOrigin(0.5)
       .setVisible(false);
     ui.add([this.bar, this.name]);
@@ -37,6 +37,8 @@ export class BossView {
     this.name.setVisible(boss !== null);
     this.warn.clear();
     if (!boss) return;
+    const name = strings.bossNames[boss.kind];
+    if (this.name.text !== name) this.name.setText(name);
     const e = boss.e;
     const frac = Math.max(0, e.hp / e.maxHp);
     if (e.hp < this.lastHp) this.chipWait = config.juice.hpChipDelay;

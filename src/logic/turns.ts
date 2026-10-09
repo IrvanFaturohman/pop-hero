@@ -1,13 +1,17 @@
 // Turn flow (Claw Master style), alternating:
-//   blow (up to N balloons push the chain; together they must reach the lock number)
+//   blow (balloons push the chain until together they reach the lock number; no balloon limit
+//   by default, `turns.balloonsPerTurn` > 0 brings one back)
 //   -> unlock (the chain strains) -> burst (it snaps; balloons escape up and pop over the hero)
-//      or, out of balloons with the lock still shut -> failed (they drift away, no bullets)
+//      or, with a limit, out of balloons with the lock still shut -> failed (no bullets)
 //   -> collect (bullets land on the hero)
 //   -> shoot (hero fires the whole volley) -> enemy (enemies step/attack, new ones walk in) -> blow
-// Wave cleared -> clear -> cards (pick an upgrade) -> next wave ... after the last wave the boss
-// drops in; boss dead -> victory. Hero HP 0 -> defeat. Pure logic.
+// A chapter is 10 waves (reference): an elite boss drops in at wave 5, the chapter boss at wave 10.
+// Wave cleared -> clear -> cards (pick an ability) -> next wave; the last wave cleared -> victory.
+// Hero HP 0 -> defeat. Pure logic.
 import { config } from '../config';
+import type { BossKind } from '../levels';
 import type { Battle } from './battle';
+import type { Rng } from './rng';
 import type { BalloonRoom } from './room';
 import type { WaveRunner } from './waves';
 
@@ -27,13 +31,13 @@ export type TurnPhase =
 
 export type TurnEvent =
   | { type: 'phase'; phase: TurnPhase }
-  | { type: 'waveIntro'; wave: number }
+  /** A wave starts; `boss` is set on the elite / boss waves. */
+  | { type: 'waveIntro'; wave: number; boss: BossKind | null }
   | { type: 'waveClear'; wave: number }
   /** Out of balloons with the lock still shut. */
   | { type: 'locked' }
-  /** Show 3 upgrade cards; the game waits for pickCard(). */
+  /** Show the ability cards; the game waits for pickCard(). */
   | { type: 'cards' }
-  | { type: 'bossIntro' }
   | { type: 'victory' }
   | { type: 'defeat' };
 
@@ -50,17 +54,18 @@ export class TurnRunner {
   private walkInOnly = false;
   /** Survivors already slid forward after this volley. */
   private reformed = false;
-  /** Fighting the boss (after the last wave). */
-  bossStage = false;
   locksOpened = 0;
   locksFailed = 0;
+  /** Waves cleared this run (meta coins). */
+  wavesCleared = 0;
 
   constructor(
     private waves: WaveRunner,
     private battle: Battle,
     private room: BalloonRoom,
+    private rng: Rng,
   ) {
-    this.events.push({ type: 'waveIntro', wave: 0 });
+    this.introEvent();
   }
 
   get cleared(): boolean {
@@ -79,28 +84,22 @@ export class TurnRunner {
     this.clear();
   }
 
-  /** Debug: jump straight to the boss. */
-  goBoss(): void {
-    if (this.bossStage || this.phase === 'victory' || this.phase === 'defeat') return;
-    while (this.waves.nextWave()) {
-      // skip to the last wave
-    }
+  /** Debug: jump to wave i (0-based), e.g. the elite or the boss. */
+  goWave(i: number): void {
+    if (this.phase === 'victory' || this.phase === 'defeat') return;
     this.waves.skipGroups();
     this.battle.killAll();
-    this.bossStage = true;
-    this.events.push({ type: 'bossIntro' });
+    this.battle.boss = null;
+    this.room.claw.retract();
+    this.waves.goTo(i);
+    this.introEvent();
     this.go('intro');
   }
 
-  /** The player picked an upgrade card: next wave, or the boss after the last one. */
+  /** The player picked an ability card: on to the next wave. */
   pickCard(): void {
     if (this.phase !== 'cards') return;
-    if (this.waves.nextWave()) {
-      this.events.push({ type: 'waveIntro', wave: this.waves.index });
-    } else {
-      this.bossStage = true;
-      this.events.push({ type: 'bossIntro' });
-    }
+    if (this.waves.nextWave()) this.introEvent();
     this.go('intro');
   }
 
@@ -112,8 +111,10 @@ export class TurnRunner {
     switch (this.phase) {
       case 'intro':
         if (this.timer >= t.introTime) {
-          if (this.bossStage) this.battle.spawnBoss();
-          else this.spawnGroup();
+          const boss = this.waves.wave.boss;
+          if (boss) b.spawnBoss(boss.kind);
+          else b.boss = null;
+          this.spawnGroup();
           this.walkInOnly = true;
           this.go('enemy');
         }
@@ -128,7 +129,7 @@ export class TurnRunner {
         if (r.lockOpen) {
           this.locksOpened++;
           this.go('unlock');
-        } else if (this.used >= t.balloonsPerTurn) {
+        } else if (t.balloonsPerTurn > 0 && this.used >= t.balloonsPerTurn) {
           this.locksFailed++;
           r.releaseGathered();
           this.events.push({ type: 'locked' });
@@ -162,8 +163,7 @@ export class TurnRunner {
         else if (!this.reformed) {
           b.reform();
           this.reformed = true;
-        }
-        else if (this.timer >= t.enemyDelay && !b.enemyTurnBusy) {
+        } else if (this.timer >= t.enemyDelay && !b.enemyTurnBusy) {
           b.startEnemyTurn();
           this.spawnGroup();
           this.walkInOnly = false;
@@ -190,22 +190,30 @@ export class TurnRunner {
       default:
         break;
     }
-    // up to N balloons per player turn, none once the lock is open
-    r.armed = this.phase === 'blow' && this.used < t.balloonsPerTurn && !r.lockOpen;
+    // balloons until the lock opens (up to N per turn if a limit is set)
+    const limited = t.balloonsPerTurn > 0;
+    r.armed = this.phase === 'blow' && (!limited || this.used < t.balloonsPerTurn) && !r.lockOpen;
   }
 
-  /** Balloons still to blow this turn (for the UI). */
+  /** Balloons still to blow this turn (for the UI); -1 = no limit. */
   get balloonsLeft(): number {
-    return this.phase === 'blow' ? Math.max(0, config.turns.balloonsPerTurn - this.used) : 0;
+    if (this.phase !== 'blow') return 0;
+    const n = config.turns.balloonsPerTurn;
+    return n > 0 ? Math.max(0, n - this.used) : -1;
+  }
+
+  private introEvent(): void {
+    this.events.push({ type: 'waveIntro', wave: this.waves.index, boss: this.waves.wave.boss?.kind ?? null });
   }
 
   private waveDone(): boolean {
-    if (this.bossStage) return this.battle.boss !== null && !this.battle.boss.e.alive;
     return this.battle.aliveCount === 0 && !this.waves.hasMoreGroups;
   }
 
   private clear(): void {
-    if (this.bossStage) {
+    this.wavesCleared++;
+    this.room.claw.retract();
+    if (this.waves.isLast) {
       this.battle.killAll();
       this.go('victory');
       this.events.push({ type: 'victory' });
@@ -223,7 +231,11 @@ export class TurnRunner {
   private go(p: TurnPhase): void {
     if (p === 'blow') {
       this.used = 0;
-      this.room.setLock(this.bossStage ? config.boss.lock : this.waves.wave.lock);
+      this.room.setLock(this.waves.wave.lock);
+      // the Digger Mole digs its claw into the balloon room at a new spot every turn
+      const boss = this.battle.boss;
+      if (boss && boss.e.alive && boss.kind === 'mole') this.room.claw.dig(this.rng, boss.phase2);
+      else this.room.claw.retract();
     }
     this.phase = p;
     this.timer = 0;

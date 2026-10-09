@@ -10,8 +10,9 @@ describe('balloon formulas', () => {
   it('ammo = floor(1 + (ammoMax-1) * air^ammoExp)', () => {
     expect(ammoFor(0)).toBe(1);
     expect(ammoFor(1)).toBe(config.balloon.ammoMax);
-    expect(ammoFor(0.5)).toBe(Math.floor(1 + 39 * Math.pow(0.5, 1.5))); // 14
-    expect(ammoFor(0.9)).toBe(Math.floor(1 + 39 * Math.pow(0.9, 1.5))); // 34
+    const m = config.balloon.ammoMax - 1;
+    expect(ammoFor(0.5)).toBe(Math.floor(1 + m * Math.pow(0.5, 1.5)));
+    expect(ammoFor(0.9)).toBe(Math.floor(1 + m * Math.pow(0.9, 1.5)));
   });
 
   it('ammo grows monotonically', () => {
@@ -23,19 +24,20 @@ describe('balloon formulas', () => {
     }
   });
 
-  it('tiers at 10 / 20 / 30', () => {
-    expect(tierFor(9)).toBe(1);
-    expect(tierFor(10)).toBe(2);
-    expect(tierFor(19)).toBe(2);
-    expect(tierFor(20)).toBe(3);
-    expect(tierFor(30)).toBe(4);
-    expect(tierFor(40)).toBe(4);
+  it('tiers at tierT2 / tierT3 / tierT4', () => {
+    const b = config.balloon;
+    expect(tierFor(b.tierT2 - 1)).toBe(1);
+    expect(tierFor(b.tierT2)).toBe(2);
+    expect(tierFor(b.tierT3 - 1)).toBe(2);
+    expect(tierFor(b.tierT3)).toBe(3);
+    expect(tierFor(b.tierT4)).toBe(4);
+    expect(tierFor(b.ammoMax)).toBe(4);
   });
 
   it('radius spans rMin..rMax', () => {
     expect(radiusFor(0)).toBe(config.balloon.rMin);
     expect(radiusFor(1)).toBe(config.balloon.rMax);
-    expect(radiusFor(1, { inflateMult: 1, rMaxMult: 1.1 })).toBeCloseTo(config.balloon.rMax * 1.1);
+    expect(radiusFor(1, { inflateMult: 1, rMaxMult: 1.1, ammoMult: 1 })).toBeCloseTo(config.balloon.rMax * 1.1);
   });
 
   it('bonus is at least +1', () => {

@@ -4,6 +4,7 @@
 // Position-based dynamics in the fixed 60 Hz step. Pure logic.
 import { config } from '../config';
 import type { Balloon } from './balloon';
+import type { Claw } from './claw';
 import { Rope } from './rope';
 import type { SpikeField } from './spikes';
 
@@ -16,7 +17,7 @@ export class BalloonPhysics {
   readonly rope = new Rope();
 
   /** Call after every balloon's prevX/prevY was saved for this step. */
-  step(list: readonly Balloon[], attached: Balloon | null, dt: number): void {
+  step(list: readonly Balloon[], attached: Balloon | null, dt: number, claw?: Claw): void {
     const bc = config.balloon;
     const damp = Math.exp(-bc.drag * dt);
     for (const b of list) {
@@ -33,6 +34,7 @@ export class BalloonPhysics {
       for (const b of list) if (b.state === 'flying' || b.state === 'parked') this.rope.collide(b, false);
       if (attached) this.rope.collide(attached, true);
       this.separate(list, attached);
+      if (claw?.active) for (const b of list) if (b.state === 'flying' || b.state === 'parked') claw.pushOut(b);
       for (const b of list) if (isFree(b)) this.walls(b);
     }
     // velocities from the solved positions (keeps collisions soft, no teleports)

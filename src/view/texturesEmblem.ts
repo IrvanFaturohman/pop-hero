@@ -1,4 +1,5 @@
-// Emblems drawn on special balloons (fire / ice / bomb / heal), plus the bomb projectile.
+// Emblems drawn on special balloons (fire / ice / bomb / heal / star / red star), the bomb
+// projectile, and the star / coin icons used by the HUD, cards and home screen.
 import type Phaser from 'phaser';
 import { config } from '../config';
 import { canvasTex } from './canvasTex';
@@ -75,14 +76,75 @@ function heart(c: Ctx): void {
   c.stroke();
 }
 
+/** Five-point star centered at (32, 32). */
+function starShape(c: Ctx, fill: string, r = 26): void {
+  c.fillStyle = fill;
+  c.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const rr = i % 2 === 0 ? r : r * 0.48;
+    c.lineTo(32 + Math.cos(a) * rr, 33 + Math.sin(a) * rr);
+  }
+  c.closePath();
+  c.fill();
+  c.stroke();
+}
+
+function shine(c: Ctx): void {
+  c.fillStyle = 'rgba(255,255,255,0.55)';
+  c.beginPath();
+  c.ellipse(26, 24, 5, 3, -0.6, 0, Math.PI * 2);
+  c.fill();
+}
+
+function coin(c: Ctx): void {
+  c.fillStyle = config.palette.coin;
+  c.beginPath();
+  c.arc(32, 32, 24, 0, Math.PI * 2);
+  c.fill();
+  c.stroke();
+  c.strokeStyle = '#E09A00';
+  c.lineWidth = 4;
+  c.beginPath();
+  c.arc(32, 32, 15, 0, Math.PI * 2);
+  c.stroke();
+  shine(c);
+}
+
 export function makeEmblemTextures(scene: Phaser.Scene): void {
-  const draws: Record<string, (c: Ctx) => void> = { fire: flame, ice: snowflake, bomb, heal: heart };
+  const draws: Record<string, (c: Ctx) => void> = {
+    fire: flame,
+    ice: snowflake,
+    bomb,
+    heal: heart,
+    star: (c) => starShape(c, '#ffffff', 24),
+    redstar: (c) => starShape(c, config.palette.redStar, 24),
+  };
   for (const [k, fn] of Object.entries(draws)) {
     canvasTex(scene, `emb_${k}`, 64, 64, (c) => {
       c.lineJoin = 'round';
       c.lineCap = 'round';
       c.strokeStyle = config.palette.outline;
       c.lineWidth = 4;
+      fn(c);
+    });
+  }
+  const icons: Record<string, (c: Ctx) => void> = {
+    ic_star: (c) => {
+      starShape(c, config.palette.star);
+      shine(c);
+    },
+    ic_redstar: (c) => {
+      starShape(c, config.palette.redStar);
+      shine(c);
+    },
+    ic_coin: coin,
+  };
+  for (const [k, fn] of Object.entries(icons)) {
+    canvasTex(scene, k, 64, 64, (c) => {
+      c.lineJoin = 'round';
+      c.strokeStyle = config.palette.outline;
+      c.lineWidth = 5;
       fn(c);
     });
   }

@@ -6,6 +6,7 @@ import { config } from './config';
 import { clamp } from './logic/math';
 import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
+import { HomeScene } from './scenes/HomeScene';
 import { TitleScene } from './scenes/TitleScene';
 
 const L = config.layout;
@@ -26,6 +27,6 @@ const game = new Phaser.Game({
   input: { activePointers: 1 },
   disableContextMenu: true,
   banner: false,
-  scene: [BootScene, TitleScene, GameScene],
+  scene: [BootScene, TitleScene, HomeScene, GameScene],
 });
 game.registry.set('renderScale', renderScale);

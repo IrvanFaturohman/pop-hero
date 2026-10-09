@@ -9,6 +9,8 @@ export class Banner {
   private text: Phaser.GameObjects.Text;
   private t = 0;
   private hold = 0;
+  /** Long messages shrink to fit the screen width. */
+  private fit = 1;
 
   constructor(scene: Phaser.Scene, layer: Phaser.GameObjects.Layer, textRes: number) {
     const L = config.layout;
@@ -23,14 +25,15 @@ export class Banner {
   show(msg: string, color = '#ffffff', hold = 1.1): void {
     this.t = 0;
     this.hold = hold;
-    this.text.setText(msg).setColor(color).setVisible(true).setAlpha(1);
+    this.text.setScale(1).setText(msg).setColor(color).setVisible(true).setAlpha(1);
+    this.fit = Math.min(1, (config.layout.width - 40) / Math.max(1, this.text.width));
   }
 
   update(dt: number): void {
     if (!this.text.visible) return;
     this.t += dt;
     const inT = Math.min(1, this.t / 0.35);
-    const s = easeOutBack(inT, 2.2);
+    const s = easeOutBack(inT, 2.2) * this.fit;
     this.text.setScale(s).setAngle(Math.sin(this.t * 3) * 2 * (1 - inT));
     if (this.t > this.hold) {
       const k = (this.t - this.hold) / 0.3;

@@ -1,6 +1,7 @@
 // Everything on top of the world for one run: wave HUD, turn pill, chain + lock, boss bar, banners,
 // upgrade cards, pause menu, result screen and first-run hints. Reads logic state, owns no rules.
 import type Phaser from 'phaser';
+import type { AbilitySet, Card, Wallet } from '../abilities';
 import { config } from '../config';
 import { sfx } from '../audio/sfx';
 import { sfxBattle } from '../audio/sfxBattle';
@@ -13,9 +14,9 @@ import type { RoomEvent, BalloonRoom } from '../logic/room';
 import type { RunStats } from '../logic/telemetry';
 import type { TurnEvent, TurnRunner } from '../logic/turns';
 import type { WaveRunner } from '../logic/waves';
+import { stage1 } from '../levels';
 import { ftueDone } from '../storage';
 import { strings } from '../strings';
-import type { UpgradeDef } from '../upgrades';
 import { Banner } from '../view/banner';
 import { BossView } from '../view/bossView';
 import { CardPicker } from '../view/cardPicker';
@@ -46,7 +47,12 @@ export interface UiState {
   battle: Battle;
   turns: TurnRunner;
   waves: WaveRunner;
+  wallet: Wallet;
+  abilities: AbilitySet;
 }
+
+const ELITE_WAVES = stage1.waves.map((w, i) => (w.boss?.kind === 'ratking' ? i : -1)).filter((i) => i >= 0);
+const BOSS_WAVE = stage1.waves.findIndex((w) => w.boss?.kind === 'mole');
 
 export class GameUi {
   readonly banner: Banner;
@@ -62,8 +68,14 @@ export class GameUi {
   onPause: () => void = () => {};
   onResume: () => void = () => {};
   onRestart: () => void = () => {};
+  onHome: () => void = () => {};
 
-  constructor(scene: Phaser.Scene, L: UiLayers, rs: number, private fx: UiFx) {
+  constructor(
+    private scene: Phaser.Scene,
+    private L: UiLayers,
+    rs: number,
+    private fx: UiFx,
+  ) {
     this.rope = new RopeView(scene, L.spikes);
     this.lock = new LockView(scene, L.spikes, rs);
     this.lock.onTick = () => sfx.lock_tick();
@@ -74,12 +86,14 @@ export class GameUi {
     this.banner = new Banner(scene, L.ui, rs);
     this.cards = new CardPicker(scene, L.ui, rs);
     this.cards.onSelect = () => sfxBattle.card_select();
+    this.cards.onDenied = () => sfx.empty_click();
     const hud = new Hud(scene, L.ui);
     hud.onPause = () => this.onPause();
     this.pauseMenu = new PauseMenu(scene, L.ui, rs);
     this.pauseMenu.onTap = () => sfx.ui_tap();
     this.pauseMenu.onResume = () => this.onResume();
     this.pauseMenu.onRestart = () => this.onRestart();
+    this.pauseMenu.onHome = () => this.onHome();
     this.result = new ResultScreen(scene, L.ui, rs);
     this.result.onTap = () => sfx.ui_tap();
   }
@@ -88,13 +102,40 @@ export class GameUi {
     this.pauseMenu.show(v);
   }
 
-  showCards(defs: UpgradeDef[], onPick: (u: UpgradeDef) => void): void {
-    this.cards.show(defs, onPick);
+  showCards(cards: Card[], wallet: Wallet, onPick: (c: Card | null) => void): void {
+    this.cards.show(cards, wallet, onPick);
   }
 
-  showResult(stats: RunStats, onPlayAgain: () => void): void {
-    this.result.onPlayAgain = onPlayAgain;
-    this.result.show(stats);
+  showResult(stats: RunStats, coins: number, onContinue: () => void): void {
+    this.result.onContinue = onContinue;
+    this.result.show(stats, coins);
+  }
+
+  /** A star from a star balloon arcs up to its HUD counter. */
+  flyStar(red: boolean, x: number, y: number): void {
+    const to = this.topHud.starTarget(red);
+    const img = this.scene.add.image(x, y, red ? 'ic_redstar' : 'ic_star').setScale(0.9);
+    this.L.ui.add(img);
+    const mid = { x: (x + to.x) / 2 + 80, y: Math.min(y, to.y) - 60 };
+    const curve = { t: 0 };
+    this.scene.tweens.add({
+      targets: curve,
+      t: 1,
+      duration: 650,
+      ease: 'Quad.easeIn',
+      onUpdate: () => {
+        const t = curve.t;
+        const u = 1 - t;
+        img.setPosition(u * u * x + 2 * u * t * mid.x + t * t * to.x, u * u * y + 2 * u * t * mid.y + t * t * to.y);
+        img.setScale(0.9 - 0.3 * t).setAngle(t * 360);
+      },
+      onComplete: () => {
+        img.destroy();
+        this.topHud.starLanded(red);
+        this.fx.particles.burst('p_star', to.x, to.y, 8, 80, 200, { life: 0.35, scale0: 0.7, scale1: 0.1, tint: red ? 0xff4d5e : 0xffd23f });
+        sfx.tier_up(1);
+      },
+    });
   }
 
   /** Lock / chain moments from the balloon room. */
@@ -139,10 +180,9 @@ export class GameUi {
 
   update(realDt: number, gameDt: number, s: UiState): void {
     const { room, battle, turns, waves } = s;
-    const hpFrac = battle.hp / config.hero.hp;
-    const bossStage = turns.bossStage;
-    const progress = bossStage ? 1 : waves.progress(battle.aliveCount, turns.cleared);
-    this.topHud.update(realDt, hpFrac, bossStage ? waves.waveCount : waves.index, waves.waveCount, progress, bossStage);
+    const hpFrac = battle.hp / battle.maxHp;
+    const nodes = { index: waves.index, count: waves.waveCount, elite: ELITE_WAVES, boss: BOSS_WAVE, cleared: turns.cleared };
+    this.topHud.update(realDt, hpFrac, nodes, s.wallet, s.abilities);
     const ph = turns.phase;
     const rope = room.physics.rope;
     const strain = room.lockTarget > 0 ? 1 - room.lockLeft / room.lockTarget : 0;

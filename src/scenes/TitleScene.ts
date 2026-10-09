@@ -1,5 +1,5 @@
-// Title: logo, colorful balloons bobbing, "HOLD TO PLAY". Holding anywhere fills a ring and starts
-// the game (and unlocks audio on the first touch).
+// Title: logo, colorful balloons bobbing, "HOLD TO PLAY". Holding anywhere fills a ring and opens
+// the home screen (and unlocks audio on the first touch).
 import Phaser from 'phaser';
 import { config } from '../config';
 import { sfx } from '../audio/sfx';
@@ -99,7 +99,7 @@ export class TitleScene extends Phaser.Scene {
       this.started = true;
       sfx.ui_tap();
       this.cameras.main.fadeOut(220, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('Game'));
+      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('Home'));
     }
   }
 }

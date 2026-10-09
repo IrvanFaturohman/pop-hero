@@ -1,23 +1,16 @@
-// Generated textures for enemies (rat, bunny, boar facing the hero), the "!" alert and coins.
+// Generated textures for enemies (rat, bunny, boar, Rat King facing the hero; bat, bear and the
+// Digger Mole in texturesCreatures.ts), the "!" alert and coins.
 import type Phaser from 'phaser';
 import { config, hex } from '../config';
 import type { EnemyKind } from '../levels';
 import { canvasTex } from './canvasTex';
 import { css, shade } from './color';
+import { bat, bear, blob, mole } from './texturesCreatures';
 
 /** Texture size relative to the enemy radius (body fills ~radius*2 wide). */
 export const ENEMY_TEX_SCALE = 2.6;
 
 type Ctx = CanvasRenderingContext2D;
-
-/** Fill + outline helper. */
-function blob(c: Ctx, fill: string, draw: () => void): void {
-  c.fillStyle = fill;
-  c.beginPath();
-  draw();
-  c.fill();
-  c.stroke();
-}
 
 /** Critters facing left (toward the hero). r = body radius in texture px. */
 function critter(c: Ctx, s: number, kind: EnemyKind): void {
@@ -32,7 +25,10 @@ function critter(c: Ctx, s: number, kind: EnemyKind): void {
   const body = css(enemyColor(kind));
   const dark = css(shade(enemyColor(kind), -0.3));
   const light = css(shade(enemyColor(kind), 0.25));
-  if (kind === 'grunt' || kind === 'boss') {
+  if (kind === 'flier') bat(c, cx, cy, r);
+  else if (kind === 'brute') bear(c, cx, cy, r);
+  else if (kind === 'mole') mole(c, cx, cy, r);
+  else if (kind === 'grunt' || kind === 'ratking') {
     // rat: pink tail, round body, pointed snout, red eye (the boss is a big rat king)
     c.strokeStyle = '#E58FA0';
     c.lineWidth = r * 0.12;
@@ -68,7 +64,7 @@ function critter(c: Ctx, s: number, kind: EnemyKind): void {
     c.beginPath();
     c.ellipse(cx + r * 0.2, cy - r * 0.2, r * 0.35, r * 0.12, -0.2, 0, Math.PI * 2);
     c.fill();
-    if (kind === 'boss') {
+    if (kind === 'ratking') {
       // crown + angry brow + scar
       c.strokeStyle = ol;
       c.lineWidth = Math.max(3, r * 0.06);
@@ -177,7 +173,7 @@ export function enemyColor(kind: EnemyKind): number {
 }
 
 export function makeEnemyTextures(scene: Phaser.Scene): void {
-  for (const kind of ['grunt', 'runner', 'tank', 'boss'] as EnemyKind[]) {
+  for (const kind of ['grunt', 'runner', 'tank', 'flier', 'brute', 'ratking', 'mole'] as EnemyKind[]) {
     const s = Math.ceil(config.enemies[kind].radius * ENEMY_TEX_SCALE);
     canvasTex(scene, `enemy_${kind}`, s, s, (c) => critter(c, s, kind));
   }

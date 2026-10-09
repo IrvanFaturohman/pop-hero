@@ -1,5 +1,33 @@
 # CHANGELOG
 
+## M6.2 — Tempo tembak & isi balon seperti video — 2026-10-09
+
+- Diukur frame per frame dari video (pill peluru di bawah hero): satu tembakan tiap ~0,37 s (**~2,7 tembakan/detik**), volley besar tidak lebih cepat; satu giliran ~9–15 peluru; peluru 30 damage, tikus ~7 tembakan.
+- **Hero menembak satu per satu**: 2,8 tembakan/detik (maks 3,5 untuk volley sangat panjang), peluru terbang 1000 px/s (dulu sampai 45 tembakan/detik, 1400 px/s).
+- **Isi balon dikurangi**: balon penuh = 10 peluru (dulu 40), tier di 4/6/8, gembok 7/8/9/10/11/11/12/12/13/13 → ~2 balon dan 10–18 peluru per giliran.
+- Skala ikut berubah: peluru 30 damage (upgrade Damage +3/level), HP musuh tikus 210 · kelinci 120 · babi 520 · kelelawar 270 · beruang 1240 · Rat King 2100 · Digger Mole 5200, damage musuh 16/12/30/18/46, slam 56/72, bom = angka balon × 55, heal = × 6,5, burn 10, sisa peluru: 1 peluru = 3 HP.
+- Simulasi bot 20 seed: tanpa upgrade menang 25%, 5 level 60%, 11 level 90%; run 3–9 menit.
+
+## M6.1 — Tanpa batas 3 balon — 2026-10-09
+
+- **Tidak ada batas balon per giliran** (permintaanmu): tiup terus sampai gembok terbuka. Tidak ada lagi "LOCKED!" / giliran tanpa peluru; balon yang meletus hanya membuang waktu (dan bintangnya, kalau itu balon bintang). Pill jadi "HOLD TO BLOW", ikon di samping gembok sekarang menampilkan 3 balon berikutnya. Batasnya masih bisa dinyalakan lagi: `turns.balloonsPerTurn` di panel debug (0 = tanpa batas).
+- **Rebalance** (tiap giliran sekarang selalu menghasilkan peluru penuh, jadi tantangannya pindah ke battle): HP musuh naik (tikus 320, kelinci 180, babi 800, kelelawar 420, beruang 1900, Rat King 2800, Digger Mole 6500), damage musuh ×1.7 (14/10/26/16/40, slam 48/56), gelombang 9 dapat beruang. Simulasi bot 16 seed: tanpa upgrade menang 31% (beberapa kalah di elite gelombang 5, seperti run pertama di video), 5 level upgrade 75%, 11 level 94%; run 3–8 menit.
+
+## M6 — Alur Claw Master dari video YouTube — 2026-10-09
+
+Mengikuti video walkthrough Claw Master (analisis frame di DESIGN_NOTES §0c). Ruang balon tetap jadi sumber peluru.
+
+- **10 gelombang per run** (dulu 5 + boss): kelompok kecil yang masuk sekaligus, **elite Rat King di gelombang 5**, **boss baru Digger Mole di gelombang 10** (banner "BOSS INCOMING!!"). Musuh baru: kelelawar (terbang, melayang di atas jalan) dan beruang (tangguh). Semua karakter digambar sendiri.
+- **Progress bar node** di atas layar: ✓ hijau untuk gelombang selesai, oranye untuk elite, tengkorak merah untuk boss.
+- **Kartu kemampuan baru**: 9 kemampuan × 3 level (permata di kartu). Level 1 gratis, level 2 = 1★, level 3 = 3★ (tombol abu-abu kalau kurang). Kartu evolusi merah setelah level 3: Execution, Ricochet, Second Wind (1 ★ merah). Tombol SKIP kalau tidak ada yang terbeli. Ikon kemampuan + level di kiri atas.
+- **Balon bintang** (emas = ★, putih = ★ merah): bintang terbang ke penghitung di atas layar dan jadi mata uang kartu.
+- **Digger Mole**: tiap giliranmu menggali cakar ke ruang balon dari dinding kiri/kanan. Balon yang ditiup meletus kalau kena, balon yang dilepas dan duri memantul. Balon yang tertahan di bawah cakar meluncur ke ujungnya, dan setelah 5 detik otomatis masuk gembok (tidak bisa macet).
+- **Meta tanpa energi**: Title → **Home** (koin, chapter "1 WHISPER WOODS", START, tab UPGRADES). Layar hasil VICTORY/DEFEAT + REWARDS koin → CONTINUE ke Home. Upgrade permanen Damage / Health / Armor dengan harga naik; pangkat "APPRENTICE n" naik tiap 10 level (+100 koin). Tab UPGRADES terbuka setelah run pertama lewat popup "NEW FEATURE!" + tangan penunjuk.
+- **Skala angka seperti video**: peluru 10 damage, HP hero 300, HP musuh ratusan. Armor mengurangi tiap serangan (minimal 1).
+- Menu pause: tombol **HOME** (keluar run tanpa hadiah). Panel debug: Go to elite / Go to boss, +3★ +1★ merah.
+- Telemetry: bintang terkumpul, koin, level meta, urutan kartu dengan level (mis. `attack:2`, `evo:execution`).
+- Unit test baru: kartu (harga, penawaran, evolusi), meta (koin, harga, pangkat, Second Wind), cakar boss, 10 gelombang.
+
 ## M5.2 — Sisa peluru jadi HP + balancing — 2026-10-08
 
 - **Sisa peluru**: tetap terbawa antar giliran dalam satu wave (seperti Claw Master), tapi **saat wave selesai semua sisa peluru mengalir ke bar HP** (4 peluru = 1 HP, `config.leftover`), lalu peluru mulai lagi dari 0. Animasi: titik peluru melompat dari angka peluru ke bar HP, angka turun, lalu "+N HP" (atau "FULL HP"). Sebelumnya simpanan tidak pernah di-reset dan bisa menumpuk sampai ~90, sehingga gagal gembok hampir tidak berasa.

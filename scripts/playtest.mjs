@@ -13,6 +13,14 @@ await page.waitForTimeout(1200);
 const box = await page.locator('canvas').boundingBox();
 const cx = box.x + box.width / 2;
 const cy = box.y + box.height * 0.8;
+// title (hold) -> home -> START (logical 360, 850 on the 720x1280 canvas)
+await page.mouse.move(cx, cy);
+await page.mouse.down();
+await page.waitForTimeout(700);
+await page.mouse.up();
+await page.waitForTimeout(900);
+await page.mouse.click(cx, box.y + (850 / 1280) * box.height);
+await page.waitForTimeout(2500);
 const stats = () => page.evaluate(() => {
   const p = window.__pop;
   return { ...p.room.stats, releaseAirs: p.room.stats.releaseAirs.map((a) => +a.toFixed(2)), ammo: p.battle.ammo, protectedLeft: p.room.protectedLeft };

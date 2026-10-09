@@ -45,11 +45,13 @@ export const config = {
     rMax: 150, // px
     inflateRate: 0.45, // air per second (full in ~2.2 s)
     curve: 'linear' as InflateCurve,
-    ammoMax: 40,
+    // Reference: one claw grab is ~9-15 bullets per turn, so a full balloon holds 10 and a turn
+    // needs ~2 balloons (lock 7-13).
+    ammoMax: 10,
     ammoExp: 1.5, // convex: greed pays more
-    tierT2: 10, // ammo >= this -> tier 2
-    tierT3: 20,
-    tierT4: 30,
+    tierT2: 4, // ammo >= this -> tier 2
+    tierT3: 6,
+    tierT4: 8,
     overinflateTime: 0.5, // s of strain at air = 1 before it pops itself
     hitboxScale: 0.92, // hitbox radius = visual radius * this
     riseSpeed: 420, // px/s upward kick on release (then buoyancy takes over)
@@ -65,6 +67,7 @@ export const config = {
     squish: 8, // px balloons may overlap before pushing apart
     spawnGrace: 0.15, // s a new balloon can't be popped (forgives tapping right on a spike)
     strainStart: 0.85, // air above which it jitters and creaks
+    stuckTime: 5, // s a released balloon may take to reach the group before it joins anyway (boss claw)
   },
 
   spawn: {
@@ -75,8 +78,8 @@ export const config = {
     /** Balloons that cannot pop on the very first run (tutorial). */
     tutorialProtected: 2,
     /** Type weights (types unlock from wave 2, see levels.ts). */
-    typeWeights: { normal: 60, fire: 12, ice: 12, bomb: 8, heal: 8 },
-    queueSize: 3, // upcoming balloon types shown (= balloons per turn)
+    typeWeights: { normal: 54, fire: 10, ice: 10, bomb: 7, heal: 7, star: 10, redstar: 2 },
+    queueSize: 3, // upcoming balloon types shown next to the lock
   },
 
   bonus: {
@@ -113,13 +116,17 @@ export const config = {
   },
 
   hero: {
-    hp: 150, // brief: 100; every enemy hits every turn (hordes)
-    // Turn-based: the hero fires its whole ammo as one volley. Rate scales so big volleys stay short.
-    volleyTime: 1.6, // s a full volley aims to take
-    minFireRate: 8, // shots per second
-    maxFireRate: 45,
-    bulletSpeed: 1400, // px/s
-    bulletDamage: 1,
+    // Numbers scaled like the reference (bullets deal 30, hero has hundreds of HP) so percentage
+    // upgrades (+15% damage, crit, multishot at 30%) stay visible on the damage numbers.
+    hp: 300, // before meta Health upgrades and Health Boost cards
+    // Turn-based: the hero fires its whole ammo as one volley, one shot at a time like the
+    // reference (~2.7 shots/s measured in the walkthrough; only very long volleys speed up a bit).
+    volleyTime: 5, // s a full volley aims to take
+    minFireRate: 2.8, // shots per second
+    maxFireRate: 3.5,
+    bulletSpeed: 1000, // px/s (bullets visibly fly, ~0.3 s to the front enemy)
+    bulletDamage: 30, // before meta Damage upgrades and Attack Damage cards
+    critMult: 2, // crit damage multiplier before Crit Damage cards
     recoil: 4, // px
   },
 
@@ -134,38 +141,57 @@ export const config = {
     attackHit: 0.15, // s from dash start to the hit
     attackTime: 0.36, // s whole dash (go, hit, back)
     laneOffsets: [-42, -14, 14, 42], // px around groundY for depth (4 lanes, hordes)
-    // HP doubled vs the brief (6/3/25): the x1-x2 height multiplier doubles ammo supply.
-    // damage = per attack, every enemy turn.
-    grunt: { hp: 12, damage: 4, radius: 28, knockback: 10 },
-    runner: { hp: 6, damage: 3, radius: 20, knockback: 10 },
-    tank: { hp: 50, damage: 8, radius: 40, knockback: 4 },
-    // brief 300 HP x2 like the other enemies; damage is its slam
-    boss: { hp: 600, damage: 15, radius: 74, knockback: 0 },
+    // Small groups per wave (reference), so each enemy is tougher than the old hordes.
+    // hp in bullet-damage units (a bullet deals 30); damage = per attack, every enemy turn.
+    // `small` enemies can be stunned by Knockback; fliers hover over the road.
+    grunt: { hp: 210, damage: 16, radius: 28, knockback: 10, small: true, fly: false },
+    runner: { hp: 120, damage: 12, radius: 20, knockback: 10, small: true, fly: false },
+    tank: { hp: 520, damage: 30, radius: 40, knockback: 4, small: false, fly: false },
+    flier: { hp: 270, damage: 18, radius: 26, knockback: 8, small: true, fly: true },
+    brute: { hp: 1240, damage: 46, radius: 50, knockback: 2, small: false, fly: false },
+    // bosses: damage is their slam
+    ratking: { hp: 2100, damage: 56, radius: 74, knockback: 0, small: false, fly: false },
+    mole: { hp: 5200, damage: 72, radius: 84, knockback: 0, small: false, fly: false },
   },
 
-  /** Boss (turn-based version of the brief: slam every N enemy turns, summons, phase 2). */
+  /** Bosses stand behind the formation: slam every N enemy turns (telegraphed), summon rats,
+   *  phase 2 at half HP. The Digger Mole also digs a claw into the balloon room every turn. */
   boss: {
-    x: 585, // stands behind the formation
-    slamEvery: 2, // enemy turns between slams (telegraphed the turn before)
-    slamEveryPhase2: 1,
-    summonEvery: 3, // enemy turns between summons
-    summonCount: 3,
+    x: 585,
     phase2At: 0.5, // HP fraction
-    lock: 65, // lock number during the boss fight
+  },
+  bosses: {
+    ratking: { slamEvery: 2, slamEveryPhase2: 1, summonEvery: 3, summonCount: 2 },
+    mole: { slamEvery: 2, slamEveryPhase2: 1, summonEvery: 3, summonCount: 2 },
+  },
+
+  /** Digger Mole claw: pokes into the balloon room from a side wall, at a new height each turn.
+   *  Pops balloons being blown; released balloons bump around it. */
+  claw: {
+    radius: 30, // px capsule radius (the arm)
+    tipRadius: 40, // px hit radius of the claw at the tip
+    reach: 0.42, // fraction of the room width
+    reachPhase2: 0.55,
+    yMin: 760, // px range for the claw height
+    yMax: 1150,
+    growTime: 0.55, // s to dig in
+    retractTime: 0.3, // s to pull out
   },
 
   /** Turn flow: you blow one balloon -> hero fires the volley -> enemies step/attack -> repeat. */
   /** Bullets carry over between turns (reference) but not between waves: on wave clear every
    *  leftover bullet flows into the HP bar and the ammo starts again at 0. */
   leftover: {
-    bulletsPerHp: 4,
+    hpPerBullet: 3,
     delay: 0.7, // s after "WAVE CLEAR" before the bullets start flowing
     steps: 20, // the flow is split into at most this many chunks
     interval: 0.05, // s between chunks
   },
 
   turns: {
-    balloonsPerTurn: 3, // balloons (moves) per turn to open the lock
+    // Balloons per turn to open the lock; 0 = no limit (player request): keep blowing until the
+    // lock opens, popped balloons only cost time.
+    balloonsPerTurn: 0,
     unlockDelay: 0.35, // s of straining chain before it snaps
     failDelay: 0.9, // s "LOCKED" before the turn goes on without bullets
     introTime: 1.2, // s "WAVE n" banner before the first enemies walk in
@@ -216,20 +242,37 @@ export const config = {
     dangerVignette: 0.32, // max alpha of the red room vignette near spikes
   },
 
-  /** Upgrade cards between waves. */
+  /** Ability cards between waves (reference): level 1 is free, level 2 / 3 cost yellow stars,
+   *  an evolution (red card, after level 3) costs red stars. */
   cards: {
-    rarityWeights: { common: 60, rare: 30, epic: 10 },
+    price: [0, 0, 1, 3], // yellow stars for level n
+    evoPrice: 1, // red stars
+    upgradeWeight: 1.3, // offer weight of a level-up vs a new ability (1)
+    evoWeight: 1.5,
     stagger: 0.08, // s between cards entering
+  },
+
+  /** Out-of-run progression (reference home screen): coins from runs buy permanent stats. */
+  meta: {
+    coinsPerWave: 22, // per wave cleared
+    winBonus: 130,
+    costBase: 10, // coins for level 1; grows with the level
+    costGrowth: 12,
+    damagePerLevel: 3, // + bullet damage (base 30)
+    healthPerLevel: 15, // + max HP (base 300)
+    armorPerLevel: 1, // - damage per enemy hit (min 1)
+    levelsPerRank: 10,
+    rankReward: 100, // coins when the hero ranks up
   },
 
   /** Special balloon effects (from wave 2). Turn-based versions of the brief's timings. */
   effects: {
-    burnDamage: 1, // per enemy turn
+    burnDamage: 10, // per enemy turn
     burnTurns: 3,
-    bombDamageMult: 1.5, // bomb damage = balloon number x this
+    bombDamageMult: 55, // bomb damage = balloon number x this
     bombRadius: 90, // px
     bombFlight: 0.5, // s
-    healMult: 0.8, // heal = balloon number x this
+    healMult: 6.5, // heal = balloon number x this
   },
 
   /** The chain (verlet rope) the balloons push against. */
@@ -322,15 +365,24 @@ export const config = {
     grunt: '#34343C',
     runner: '#F4F1EC',
     tank: '#8A5534',
-    boss: '#5A4A63',
+    flier: '#6B4C9A',
+    brute: '#7A5A3A',
+    ratking: '#5A4A63',
+    mole: '#4A3F55',
+    star: '#FFD23F',
+    redStar: '#FF4D5E',
+    coin: '#FFC83D',
     hpBar: '#3DDC84',
     balloonNormal: '#DD72E6',
     /** Normal balloons pick one of these (no orange/cyan/green/dark: those mark special types). */
-    balloonColors: ['#FF5DA2', '#A86BFF', '#4D9DFF', '#FFC93C', '#FF6B6B', '#DD72E6'],
+    // no gold (star) or white (red star) either
+    balloonColors: ['#FF5DA2', '#A86BFF', '#4D9DFF', '#FF9ECF', '#FF6B6B', '#DD72E6'],
     balloonFire: '#FF7A1A',
     balloonIce: '#5BE7FF',
     balloonBomb: '#3B3B4F',
     balloonHeal: '#3DDC84',
+    balloonStar: '#FFC21F',
+    balloonRedStar: '#F4F1FA',
     text: '#FFFFFF',
   },
 

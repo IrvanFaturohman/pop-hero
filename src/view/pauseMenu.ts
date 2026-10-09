@@ -1,4 +1,5 @@
-// Pause menu: RESUME, RESTART and toggles (sound, music, haptics, reduced motion). Settings persist.
+// Pause menu: RESUME, RESTART, HOME (leave the run, no rewards) and toggles (sound, music, haptics,
+// reduced motion). Settings persist.
 import Phaser from 'phaser';
 import { config, hex } from '../config';
 import { synth } from '../audio/synth';
@@ -19,6 +20,7 @@ export class PauseMenu {
   private toggleTexts: Array<{ t: Phaser.GameObjects.Text; tg: Toggle }> = [];
   onResume: () => void = () => {};
   onRestart: () => void = () => {};
+  onHome: () => void = () => {};
   onTap: () => void = () => {};
 
   constructor(
@@ -30,8 +32,9 @@ export class PauseMenu {
     const dim = scene.add.rectangle(L.width / 2, L.height / 2, L.width + 200, L.height + 200, 0x120a2e, 0.8).setInteractive();
     const title = this.text(L.width / 2, 300, strings.paused, 96, '#ffffff');
     const items: Phaser.GameObjects.GameObject[] = [dim, title];
-    items.push(this.button(L.width / 2, 450, strings.resume, 0xffd23f, () => this.onResume()));
-    items.push(this.button(L.width / 2, 560, strings.restart, 0x52c2ff, () => this.onRestart()));
+    items.push(this.button(L.width / 2, 430, strings.resume, 0xffd23f, () => this.onResume()));
+    items.push(this.button(L.width / 2, 530, strings.restart, 0x52c2ff, () => this.onRestart()));
+    items.push(this.button(L.width / 2, 630, strings.home, 0xff8a65, () => this.onHome()));
     const toggles: Toggle[] = [
       { label: strings.sound, get: () => !config.audio.muted, set: (v) => ((config.audio.muted = !v), synth.applyVolume()) },
       { label: strings.music, get: () => config.audio.musicOn, set: (v) => (config.audio.musicOn = v) },
@@ -39,7 +42,7 @@ export class PauseMenu {
       { label: strings.reducedMotion, get: () => config.juice.reducedMotion, set: (v) => (config.juice.reducedMotion = v) },
     ];
     toggles.forEach((tg, i) => {
-      const c = this.button(L.width / 2, 700 + i * 96, '', 0x3a2f5c, () => {
+      const c = this.button(L.width / 2, 760 + i * 96, '', 0x3a2f5c, () => {
         tg.set(!tg.get());
         this.refresh();
         saveSettings({ muted: config.audio.muted, music: config.audio.musicOn, haptics: config.haptics.enabled, reducedMotion: config.juice.reducedMotion });

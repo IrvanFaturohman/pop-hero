@@ -9,6 +9,7 @@ import type { Shake } from '../juice/shake';
 import type { TimeControl } from '../juice/time';
 import type { BattleEvent } from '../logic/battle';
 import type { Enemy } from '../logic/enemies';
+import { isBossKind } from '../levels';
 import type { TurnEvent } from '../logic/turns';
 import { strings } from '../strings';
 import type { Banner } from '../view/banner';
@@ -48,15 +49,31 @@ export class BattleFeedback {
         d.enemies.onHit(ev.e);
         const tint = ev.kind === 'fire' ? 0xff8a3d : ev.kind === 'ice' ? 0x9fe8ff : enemyColor(ev.e.kind);
         d.particles.burst(ev.kind === 'normal' ? 'p_dot' : 'p_star', ev.x, ev.y, 6, 120, 320, { life: 0.3, scale0: 0.8, scale1: 0.1, gravity: 600, tint });
-        if (ev.crit) d.floating.show('pop', ev.x, ev.y - 30, `${strings.crit} ${ev.dmg}`, config.palette.gold, 0.6);
+        if (ev.exec) d.floating.show('pop', ev.x, ev.y - 30, strings.execute, config.palette.danger, 0.7);
+        else if (ev.crit) d.floating.show('pop', ev.x, ev.y - 30, `${strings.crit} ${ev.dmg}`, config.palette.gold, 0.6);
         else d.floating.show('damage', ev.x, ev.y - 16, String(ev.dmg));
         sfx.hit();
         break;
       }
       case 'kill':
-        if (ev.e.kind === 'boss') this.bossDeath(ev.e);
+        if (isBossKind(ev.e.kind)) this.bossDeath(ev.e);
         else this.kill(ev.e);
         break;
+      case 'stun':
+        d.floating.show('small', ev.e.x, ev.e.y - ev.e.stats.radius - 24, strings.knocked, '#FFD23F', 0.6);
+        break;
+      case 'stunSkip':
+        d.floating.show('small', ev.e.x, ev.e.y - ev.e.stats.radius - 20, strings.stunned, '#FFD23F', 0.6);
+        d.particles.burst('p_star', ev.e.x, ev.e.y - ev.e.stats.radius, 6, 60, 160, { life: 0.5, scale0: 0.7, scale1: 0.1, tint: 0xffd23f });
+        break;
+      case 'secondWind': {
+        const L = config.layout;
+        d.floating.show('pop', L.heroX + 40, L.heroY - 100, strings.secondWind, '#3DDC84', 1.1);
+        d.particles.ring(L.heroX, L.heroY, 20, 160, 0.4, 0x3ddc84, 1);
+        d.time.slow(0.4, 0.5);
+        sfxBattle.heal();
+        break;
+      }
       case 'attackStart':
         d.enemies.onAttackStart(ev.e);
         break;
@@ -160,7 +177,7 @@ export class BattleFeedback {
   private kill(e: Enemy): void {
     const d = this.d;
     const j = config.juice;
-    const tank = e.kind === 'tank';
+    const tank = e.kind === 'tank' || e.kind === 'brute';
     d.enemies.onKill(e);
     const r = e.stats.radius;
     d.particles.burst('p_dot', e.x, e.y, 10, 160, 420, { gravity: 900, drag: 1.5, life: 0.6, scale0: r / 12, scale1: r / 40, alpha1: 0.2, tint: enemyColor(e.kind) }, r * 0.4);
@@ -182,7 +199,7 @@ export class BattleFeedback {
     d.shake.add(1);
     d.particles.ring(e.x, e.y, 30, 260, 0.5, 0xffffff, 1);
     d.particles.burst('p_soft', e.x, e.y, 24, 150, 520, { drag: 2.5, life: 0.8, scale0: 1.6, scale1: 3, alpha0: 0.9, alpha1: 0, tint: 0xff8a3d, additive: true });
-    d.particles.burst('p_dot', e.x, e.y, 30, 200, 700, { gravity: 900, life: 1, scale0: 2, scale1: 0.6, tint: enemyColor('boss') }, e.stats.radius * 0.5);
+    d.particles.burst('p_dot', e.x, e.y, 30, 200, 700, { gravity: 900, life: 1, scale0: 2, scale1: 0.6, tint: enemyColor(e.kind) }, e.stats.radius * 0.5);
     for (let i = 0; i < 16; i++) {
       d.particles.emit('coin', e.x, e.y, { vx: (Math.random() - 0.5) * 500, vy: -400 - Math.random() * 300, gravity: 1300, life: 1.1, spin: 10, alpha0: 1, alpha1: 0 });
     }
@@ -192,14 +209,17 @@ export class BattleFeedback {
 
   turn(ev: TurnEvent): void {
     const d = this.d;
-    if (ev.type === 'bossIntro') {
-      d.banner.show(strings.boss, config.palette.danger, 1.4);
-      d.shake.add(0.4);
-      sfxBattle.boss_roar();
-    } else if (ev.type === 'cards') {
+    if (ev.type === 'cards') {
       sfxBattle.card_appear();
     } else if (ev.type === 'waveIntro') {
-      d.banner.show(strings.waveIntro(ev.wave + 1));
+      if (ev.boss === 'mole') {
+        d.banner.show(strings.bossIncoming, config.palette.danger, 1.4);
+        d.shake.add(0.4);
+        sfxBattle.boss_roar();
+      } else if (ev.boss) {
+        d.banner.show(`${strings.waveIntro(ev.wave + 1)}`, '#FF9F1C', 1.2);
+        sfxBattle.boss_roar();
+      } else d.banner.show(strings.waveIntro(ev.wave + 1));
     } else if (ev.type === 'waveClear') {
       d.time.slow(config.turns.clearSlowmo, config.turns.clearSlowmoTime);
       d.banner.show(strings.waveClear, config.palette.gold, 1.3);

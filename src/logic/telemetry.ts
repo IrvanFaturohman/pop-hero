@@ -18,7 +18,12 @@ export interface RunStats {
   /** Bullets left at each wave clear (turned into HP). */
   leftoverPerWave: number[];
   hpFromLeftover: number;
+  /** Ability picks in order, e.g. "attack:2", "evo:execution". */
   upgrades: string[];
+  starsCollected: { stars: number; redStars: number };
+  coinsEarned: number;
+  /** Permanent upgrade levels the run started with. */
+  meta: Record<string, number>;
 }
 
 export interface RunInfo {
@@ -33,6 +38,9 @@ export interface RunInfo {
   leftoverPerWave: readonly number[];
   hpFromLeftover: number;
   upgrades: readonly string[];
+  stars: { stars: number; redStars: number };
+  coins: number;
+  meta: Record<string, number>;
 }
 
 export function buildStats(room: RoomStats, info: RunInfo): RunStats {
@@ -57,5 +65,8 @@ export function buildStats(room: RoomStats, info: RunInfo): RunStats {
     leftoverPerWave: [...info.leftoverPerWave],
     hpFromLeftover: Math.round(info.hpFromLeftover),
     upgrades: [...info.upgrades],
+    starsCollected: { ...info.stars },
+    coinsEarned: info.coins,
+    meta: { ...info.meta },
   };
 }

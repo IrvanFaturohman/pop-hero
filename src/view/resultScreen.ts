@@ -1,10 +1,11 @@
-// End-of-run screen: STAGE CLEAR / DEFEATED, run stats (brief §12), PLAY AGAIN and COPY STATS.
+// End-of-run screen (reference): VICTORY / DEFEAT, REWARDS (coins for the home screen), run stats
+// (brief §12), CONTINUE (to the home screen) and COPY STATS.
 import Phaser from 'phaser';
+import { abilities, evolutions } from '../abilities';
 import { config, hex } from '../config';
 import { easeOutBack } from '../juice/ease';
 import type { RunStats } from '../logic/telemetry';
 import { strings } from '../strings';
-import { upgrades } from '../upgrades';
 import { pressable } from './hud';
 
 const FONT = 'Fredoka, system-ui, sans-serif';
@@ -18,7 +19,7 @@ function fmtTime(sec: number): string {
 export class ResultScreen {
   private root: Phaser.GameObjects.Container;
   private t = 0;
-  onPlayAgain: () => void = () => {};
+  onContinue: () => void = () => {};
   onTap: () => void = () => {};
 
   constructor(
@@ -34,7 +35,7 @@ export class ResultScreen {
     return this.root.visible;
   }
 
-  show(stats: RunStats): void {
+  show(stats: RunStats, coins: number): void {
     const s = this.scene;
     const L = config.layout;
     this.root.removeAll(true);
@@ -45,13 +46,29 @@ export class ResultScreen {
       s.add
         .text(x, y, msg, { fontFamily: FONT, fontSize: `${size}px`, fontStyle: '700', color, stroke: config.palette.outline, strokeThickness: Math.max(6, size / 6), resolution: this.textRes })
         .setOrigin(origin, 0.5);
-    const title = text(L.width / 2, 260, won ? strings.stageClear : strings.gameOver, 84, won ? config.palette.gold : config.palette.danger);
+    const title = text(L.width / 2, 170, won ? strings.stageClear : strings.gameOver, 84, won ? config.palette.gold : config.palette.danger);
+    // rewards: coins for the permanent upgrades
+    const rw = s.add.graphics();
+    rw.lineStyle(3, 0xffffff, 0.5);
+    rw.lineBetween(190, 262, 290, 262);
+    rw.lineBetween(430, 262, 530, 262);
+    rw.fillStyle(0x3ddc84, 1);
+    rw.fillRoundedRect(L.width / 2 - 44, 290, 88, 88, 18);
+    rw.lineStyle(5, hex(config.palette.outline), 1);
+    rw.strokeRoundedRect(L.width / 2 - 44, 290, 88, 88, 18);
+    const coinImg = s.add.image(L.width / 2, 326, 'ic_coin').setScale(0.9);
+    const rewardsLabel = text(L.width / 2, 262, strings.rewards, 22, '#ffffff');
+    const coinText = text(L.width / 2, 366, `x${coins}`, 24, '#ffffff');
     const panel = s.add.graphics();
     panel.fillStyle(hex(config.palette.outline), 0.95);
-    panel.fillRoundedRect(70, 360, 580, 560, 28);
+    panel.fillRoundedRect(70, 410, 580, 520, 28);
     panel.lineStyle(4, 0xffffff, 0.15);
-    panel.strokeRoundedRect(70, 360, 580, 560, 28);
-    const names = stats.upgrades.map((id) => upgrades.find((u) => u.id === id)?.name ?? id);
+    panel.strokeRoundedRect(70, 410, 580, 520, 28);
+    const names = stats.upgrades.map((key) => {
+      const [id, lv] = key.split(':');
+      if (id === 'evo') return evolutions.find((e) => e.id === lv)?.name ?? lv;
+      return `${abilities.find((a) => a.id === id)?.name ?? id} ${lv}`;
+    });
     const rows: Array<[string, string]> = [
       [strings.statWave, stats.waveReached],
       [strings.statTime, fmtTime(stats.durationSec)],
@@ -62,18 +79,19 @@ export class ResultScreen {
       [strings.statBonus, `${stats.close} / ${stats.perfect}`],
       [strings.statLocks, `${stats.locksOpened} / ${stats.locksFailed}`],
       [strings.statDamage, String(stats.damageTaken)],
+      [strings.statStars, `${stats.starsCollected.stars} / ${stats.starsCollected.redStars}`],
     ];
     if (!won && stats.causeOfDefeat) rows.push([strings.statCause, stats.causeOfDefeat.toUpperCase()]);
-    const items: Phaser.GameObjects.GameObject[] = [dim, title, panel];
+    const items: Phaser.GameObjects.GameObject[] = [dim, title, rewardsLabel, rw, coinImg, coinText, panel];
     rows.forEach(([k, v], i) => {
-      const y = 400 + i * 44;
-      items.push(text(100, y, k, 24, '#cfc8e6', 0), text(620, y, v, 26, '#ffffff', 1));
+      const y = 444 + i * 40;
+      items.push(text(100, y, k, 22, '#cfc8e6', 0), text(620, y, v, 24, '#ffffff', 1));
     });
-    const up = text(L.width / 2, 400 + rows.length * 44 + 14, names.length ? names.join(', ') : strings.statNoUpgrades, 20, config.palette.gold);
+    const up = text(L.width / 2, 444 + rows.length * 40 + 14, names.length ? names.join(', ') : strings.statNoUpgrades, 19, config.palette.gold);
     up.setWordWrapWidth(540).setAlign('center');
     items.push(up);
-    items.push(this.button(L.width / 2 - 150, 1010, strings.playAgain, 0xffd23f, () => this.onPlayAgain()));
-    const copy = this.button(L.width / 2 + 150, 1010, strings.copyStats, 0x52c2ff, () => {
+    items.push(this.button(L.width / 2 - 150, 1030, strings.continue, 0xffd23f, () => this.onContinue()));
+    const copy = this.button(L.width / 2 + 150, 1030, strings.copyStats, 0x52c2ff, () => {
       const json = JSON.stringify(stats, null, 2);
       navigator.clipboard?.writeText(json).catch(() => {});
       console.log('[stats]', json);

@@ -1,6 +1,8 @@
 // Game scene: fixed-timestep logic (60 Hz accumulator) + interpolated rendering + juice.
-// Logic: balloon room + battle + turn flow. World views here; overlays/UI live in GameUi.
+// Logic: balloon room + battle + turn flow, plus the run's stars and ability cards and the meta
+// numbers the hero starts with. World views here; overlays/UI live in GameUi.
 import Phaser from 'phaser';
+import { AbilitySet, balloonAmmoMult, heroMods, rollOffer, takeCard, type Wallet } from '../abilities';
 import { FIXED_DT, MAX_STEPS_PER_FRAME, config } from '../config';
 import { Music } from '../audio/music';
 import { sfx } from '../audio/sfx';
@@ -13,6 +15,7 @@ import { Particles } from '../juice/particles';
 import { Shake } from '../juice/shake';
 import { TimeControl } from '../juice/time';
 import { patterns, stage1 } from '../levels';
+import { finishRun, heroBase, type MetaState } from '../logic/meta';
 import type { Balloon } from '../logic/balloon';
 import { Battle } from '../logic/battle';
 import { clamp01, lerp } from '../logic/math';
@@ -21,16 +24,17 @@ import { BalloonRoom } from '../logic/room';
 import { buildStats } from '../logic/telemetry';
 import { TurnRunner } from '../logic/turns';
 import { WaveRunner } from '../logic/waves';
-import { loadSettings, markTutorialDone, tutorialDone } from '../storage';
-import { rollCards } from '../upgrades';
+import { loadMeta, loadSettings, markTutorialDone, saveMeta, tutorialDone } from '../storage';
 import { ArenaView } from '../view/arenaView';
 import { BalloonLayer } from '../view/balloonLayer';
+import { ClawView } from '../view/clawView';
 import { EnemyView } from '../view/enemyView';
 import { HeroView } from '../view/heroView';
 import { RoomView } from '../view/roomView';
 import { SpikeLayerView } from '../view/spikeView';
 import { TokenFlights } from '../view/tokens';
 import { BattleFeedback } from './battleFeedback';
+import { CameraRig } from './cameraRig';
 import { Feedback } from './feedback';
 import { GameUi } from './gameUi';
 import { getDebug, setupDebug, setupInput } from './services';
@@ -73,13 +77,15 @@ export class GameScene extends Phaser.Scene {
   private battleFb!: BattleFeedback;
   private ui!: GameUi;
   private cardRng!: Rng;
-  /** Upgrade ids picked this run, in order (telemetry). */
-  private picked: string[] = [];
+  private clawView!: ClawView;
+  private meta!: MetaState;
+  /** This run's ability levels and stars (reference: card prices). */
+  private abilities = new AbilitySet();
+  private wallet: Wallet = { stars: 0, redStars: 0 };
+  private starsCollected = { stars: 0, redStars: 0 };
+  private coinsEarned = 0;
   private dangerT = 0;
-  private camZoom = 1;
-  private camCY = config.layout.height / 2;
-  private camTargetZoom = 1;
-  private camTargetCY = config.layout.height / 2;
+  private cams!: CameraRig;
   private overlayList: Array<Balloon | null> = [];
 
   constructor() {
@@ -96,19 +102,23 @@ export class GameScene extends Phaser.Scene {
     this.ended = false;
     this.endT = -1;
     this.runTime = 0;
-    this.picked = [];
+    this.abilities = new AbilitySet();
+    this.wallet = { stars: 0, redStars: 0 };
+    this.starsCollected = { stars: 0, redStars: 0 };
+    this.coinsEarned = 0;
+    this.meta = loadMeta();
 
     const rng = new Rng(config.debug.seed);
     this.room = new BalloonRoom(rng);
-    this.battle = new Battle(rng);
+    this.battle = new Battle(rng, heroBase(this.meta));
     this.cardRng = new Rng(config.debug.seed ^ 0x5eed);
     this.waves = new WaveRunner(stage1, rng);
-    this.turns = new TurnRunner(this.waves, this.battle, this.room);
+    this.turns = new TurnRunner(this.waves, this.battle, this.room, new Rng(config.debug.seed ^ 0xc1a7));
     this.room.armed = false;
     this.room.protectedLeft = tutorialDone() ? 0 : config.spawn.tutorialProtected;
 
     this.layers = Object.fromEntries(LAYERS.map((n) => [n, this.add.layer()])) as Record<LayerName, Phaser.GameObjects.Layer>;
-    this.setupCameras();
+    this.cams = new CameraRig(this, this.rs, this.layers.ui, LAYERS.filter((n) => n !== 'ui').map((n) => this.layers[n]));
     const L = this.layers;
     this.arena = new ArenaView(this, L.bg);
     this.roomView = new RoomView(this, L.bg, L.overlay);
@@ -116,6 +126,7 @@ export class GameScene extends Phaser.Scene {
     this.balloons = new BalloonLayer(this, L.balloons, this.rs);
     this.hero = new HeroView(this, L.hero, this.rs);
     this.spikeView = new SpikeLayerView(this, L.spikes);
+    this.clawView = new ClawView(this, L.spikes);
     this.particles = new Particles(this, L.fx);
     this.tokens = new TokenFlights(this, L.fx);
     this.floating = new FloatingText(this, L.fx);
@@ -126,6 +137,7 @@ export class GameScene extends Phaser.Scene {
     this.ui.onPause = () => this.pause();
     this.ui.onResume = () => this.resume();
     this.ui.onRestart = () => this.scene.restart();
+    this.ui.onHome = () => this.goHome();
 
     this.feedback = new Feedback({
       ...fx,
@@ -145,7 +157,12 @@ export class GameScene extends Phaser.Scene {
       setPattern: (id) => this.setPattern(id),
       restart: () => this.scene.restart(),
       skipWave: () => this.turns.skipWave(),
-      goBoss: () => this.turns.goBoss(),
+      goBoss: () => this.turns.goWave(this.waves.waveCount - 1),
+      goElite: () => this.turns.goWave(stage1.waves.findIndex((w) => w.boss?.kind === 'ratking')),
+      addStars: () => {
+        this.wallet.stars += 3;
+        this.wallet.redStars += 1;
+      },
       applyAudio: () => synth.applyVolume(),
       info: () => ({ particles: this.particles.active, seed: config.debug.seed, pattern: this.room.field.pattern?.name ?? '-', ammo: this.battle.ammo }),
     });
@@ -154,7 +171,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.fadeIn(250, 0, 0, 0);
     // Automation/debug handle (dev builds only).
     if (import.meta.env.DEV) {
-      (window as unknown as { __pop: unknown }).__pop = { room: this.room, battle: this.battle, waves: this.waves, turns: this.turns, scene: this, config };
+      (window as unknown as { __pop: unknown }).__pop = { room: this.room, battle: this.battle, waves: this.waves, turns: this.turns, abilities: this.abilities, wallet: this.wallet, scene: this, config };
     }
   }
 
@@ -165,16 +182,6 @@ export class GameScene extends Phaser.Scene {
     if (s.haptics !== undefined) config.haptics.enabled = s.haptics;
     if (s.reducedMotion !== undefined) config.juice.reducedMotion = s.reducedMotion;
     synth.applyVolume();
-  }
-
-  private setupCameras(): void {
-    const L = config.layout;
-    const cam = this.cameras.main;
-    cam.setZoom(this.rs).centerOn(L.width / 2, L.height / 2);
-    const ui = this.cameras.add(0, 0, this.scale.width, this.scale.height);
-    ui.setZoom(this.rs).centerOn(L.width / 2, L.height / 2);
-    cam.ignore(this.layers.ui);
-    ui.ignore(LAYERS.filter((n) => n !== 'ui').map((n) => this.layers[n]));
   }
 
   private setPattern(id: string): void {
@@ -203,15 +210,38 @@ export class GameScene extends Phaser.Scene {
     this.ui.showPause(false);
   }
 
-  /** Between waves: pick 1 of 3 upgrade cards (gameplay input is off meanwhile). */
+  /** Between waves: pick 1 of 3 ability cards, paid with stars (gameplay input is off meanwhile). */
   private showCards(): void {
     this.setInput(false);
-    this.ui.showCards(rollCards(this.cardRng, this.picked), (u) => {
-      u.apply({ room: this.room, battle: this.battle });
-      this.picked.push(u.id);
+    const offer = rollOffer(this.cardRng, this.abilities, this.wallet);
+    this.ui.showCards(offer, this.wallet, (card) => {
+      if (card && takeCard(card, this.abilities, this.wallet)) this.applyAbilities();
       this.setInput(true);
       this.turns.pickCard();
     });
+  }
+
+  private applyAbilities(): void {
+    this.battle.setMods(heroMods(this.abilities));
+    this.room.mods.ammoMult = balloonAmmoMult(this.abilities);
+  }
+
+  /** Star balloon burst over the hero: +1 star (card currency), a star flies to the HUD counter. */
+  private collectStar(red: boolean, x: number, y: number): void {
+    if (red) {
+      this.wallet.redStars++;
+      this.starsCollected.redStars++;
+    } else {
+      this.wallet.stars++;
+      this.starsCollected.stars++;
+    }
+    this.ui.flyStar(red, x, y);
+  }
+
+  /** Leave the run (pause menu): no rewards. */
+  private goHome(): void {
+    this.cameras.main.fadeOut(200, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('Home'));
   }
 
   /** Win or lose: freeze the logic, let the end effects play, then the result screen. */
@@ -222,13 +252,16 @@ export class GameScene extends Phaser.Scene {
     this.endT = RESULT_DELAY;
     this.setInput(false);
     this.feedback.stopLoops();
+    const reached = this.waves.index + 1;
+    this.coinsEarned = finishRun(this.meta, this.turns.wavesCleared, reached, won);
+    saveMeta(this.meta);
   }
 
   private showResult(): void {
     const stats = buildStats(this.room.stats, {
       won: this.won,
       seconds: this.runTime,
-      wave: this.turns.bossStage ? 'BOSS' : `${this.waves.index + 1}/${this.waves.waveCount}`,
+      wave: `${this.waves.index + 1}/${this.waves.waveCount}`,
       cause: this.battle.lastDamageBy,
       turns: this.turns.turn,
       locksOpened: this.turns.locksOpened,
@@ -236,10 +269,13 @@ export class GameScene extends Phaser.Scene {
       damageTaken: this.battle.damageTaken,
       leftoverPerWave: this.battle.leftoverPerWave,
       hpFromLeftover: this.battle.hpFromLeftover,
-      upgrades: this.picked,
+      upgrades: this.abilities.history,
+      stars: this.starsCollected,
+      coins: this.coinsEarned,
+      meta: { ...this.meta.levels },
     });
     console.log('[run stats]', JSON.stringify(stats));
-    this.ui.showResult(stats, () => this.scene.restart());
+    this.ui.showResult(stats, this.coinsEarned, () => this.goHome());
   }
 
   override update(_time: number, deltaMs: number): void {
@@ -271,7 +307,10 @@ export class GameScene extends Phaser.Scene {
     room.cheats.noPop = config.debug.noPop;
     room.step(dt, this.input2 ? this.input2.consume() : NO_INPUT);
     for (const ev of room.events) {
-      if (ev.type === 'arrive') this.battle.deliver(ev.total, ev.b.type);
+      if (ev.type === 'arrive') {
+        this.battle.deliver(ev.total, ev.b.type);
+        if (ev.b.type === 'star' || ev.b.type === 'redstar') this.collectStar(ev.b.type === 'redstar', ev.b.x, ev.b.y);
+      }
       if (ev.type === 'spawn' && ev.b.protected && room.protectedLeft === 0) markTutorialDone();
       this.ui.onRoomEvent(ev);
       this.feedback.room(ev);
@@ -283,21 +322,19 @@ export class GameScene extends Phaser.Scene {
     this.turns.step(dt);
     for (const ev of battle.events) {
       this.battleFb.battle(ev);
-      if (ev.type === 'bossPhase2') this.setPattern(stage1.boss.phase2Pattern);
+      if (ev.type === 'bossPhase2') {
+        const boss = this.waves.wave.boss;
+        if (boss) this.setPattern(boss.phase2Pattern);
+      }
     }
     battle.drain();
     for (const ev of this.turns.events) {
       if (ev.type === 'waveIntro') {
         this.setPattern(stage1.waves[ev.wave].pattern);
         room.setTypePool(stage1.waves[ev.wave].balloonTypes);
-      } else if (ev.type === 'bossIntro') {
-        this.setPattern(stage1.boss.phase1Pattern);
-        room.setTypePool(stage1.boss.balloonTypes);
       } else if (ev.type === 'cards') this.showCards();
       else if (ev.type === 'phase') {
-        const inBattle = ev.phase === 'shoot' || ev.phase === 'enemy';
-        this.camTargetZoom = inBattle ? config.camera.battleZoom : 1;
-        this.camTargetCY = inBattle ? config.camera.battleCenterY : config.layout.height / 2;
+        this.cams.battle(ev.phase === 'shoot' || ev.phase === 'enemy');
       }
       this.ui.onTurnEvent(ev, room, this.turns);
       this.battleFb.turn(ev);
@@ -312,6 +349,7 @@ export class GameScene extends Phaser.Scene {
     const a = room.attached;
     const danger = this.balloons.update(room, alpha, gameDt, realDt);
     this.spikeView.update(room.field, alpha, gameDt);
+    this.clawView.update(room.claw, alpha, gameDt);
     this.roomView.update(gameDt, danger);
     this.dangerTicks(danger, gameDt);
 
@@ -329,18 +367,11 @@ export class GameScene extends Phaser.Scene {
     this.tokens.update(gameDt);
     this.floating.update(gameDt);
     this.feedback.update(realDt);
-    this.battleFb.update(gameDt, this.battle.hp / config.hero.hp);
-    this.ui.update(realDt, gameDt, { room, battle: this.battle, turns: this.turns, waves: this.waves });
+    this.battleFb.update(gameDt, this.battle.hp / this.battle.maxHp);
+    this.ui.update(realDt, gameDt, { room, battle: this.battle, turns: this.turns, waves: this.waves, wallet: this.wallet, abilities: this.abilities });
     this.flash.update(realDt);
     this.shake.update(realDt);
-    const L = config.layout;
-    const k = Math.min(1, realDt * config.camera.speed);
-    this.camZoom += (this.camTargetZoom - this.camZoom) * k;
-    this.camCY += (this.camTargetCY - this.camCY) * k;
-    const cam = this.cameras.main;
-    cam.setZoom(this.rs * this.camZoom);
-    cam.centerOn(L.width / 2 - this.shake.offsetX, this.camCY - this.shake.offsetY);
-    cam.setRotation(this.shake.rotation);
+    this.cams.update(realDt, this.shake);
 
     this.overlayList.length = 0;
     if (config.debug.showHitbox) this.overlayList.push(a, ...room.flying);

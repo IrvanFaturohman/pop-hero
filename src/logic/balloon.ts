@@ -2,8 +2,9 @@
 import { config } from '../config';
 import { applyCurve, clamp, clamp01, lerp } from './math';
 
-export type BalloonType = 'normal' | 'fire' | 'ice' | 'bomb' | 'heal';
-export const BALLOON_TYPES: readonly BalloonType[] = ['normal', 'fire', 'ice', 'bomb', 'heal'];
+/** star / redstar carry normal bullets plus one run currency star (card prices, reference). */
+export type BalloonType = 'normal' | 'fire' | 'ice' | 'bomb' | 'heal' | 'star' | 'redstar';
+export const BALLOON_TYPES: readonly BalloonType[] = ['normal', 'fire', 'ice', 'bomb', 'heal', 'star', 'redstar'];
 
 /** inflating -> flying (released) -> parked (joined the group under the chain)
  *  -> escaping (chain snapped, flies up) -> done (burst / popped / drifted away) */
@@ -20,19 +21,21 @@ export interface Payout {
 export interface BalloonMods {
   inflateMult: number;
   rMaxMult: number;
+  /** Balloon Power: more bullets for the same size. */
+  ammoMult: number;
 }
 
-export const defaultMods = (): BalloonMods => ({ inflateMult: 1, rMaxMult: 1 });
+export const defaultMods = (): BalloonMods => ({ inflateMult: 1, rMaxMult: 1, ammoMult: 1 });
 
 export function radiusFor(air: number, mods?: BalloonMods): number {
   const b = config.balloon;
   return lerp(b.rMin, b.rMax * (mods?.rMaxMult ?? 1), applyCurve(air, b.curve));
 }
 
-/** ammo = floor(1 + (ammoMax - 1) * air^ammoExp). Max Pressure raises ammoMax with rMax. */
+/** ammo = floor(1 + (ammoMax - 1) * air^ammoExp). Bigger balloons / Balloon Power raise ammoMax. */
 export function ammoFor(air: number, mods?: BalloonMods): number {
   const b = config.balloon;
-  const max = b.ammoMax * (mods?.rMaxMult ?? 1);
+  const max = b.ammoMax * (mods?.rMaxMult ?? 1) * (mods?.ammoMult ?? 1);
   return Math.floor(1 + (max - 1) * Math.pow(clamp01(air), b.ammoExp));
 }
 
@@ -84,6 +87,8 @@ export class Balloon {
   vx = 0;
   vy = 0;
   releaseAir = 0;
+  /** s since release while still rising (a balloon stuck under the boss claw joins anyway). */
+  flyT = 0;
   /** Tutorial: spikes pass through. */
   protected = false;
   /** Thick Rubber layers left. */

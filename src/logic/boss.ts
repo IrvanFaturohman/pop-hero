@@ -1,6 +1,8 @@
-// Boss brain, turn-based version of the brief: slams the hero every N enemy turns (telegraphed
-// during the player's turn before), summons grunts, enters phase 2 at half HP. Pure logic.
+// Boss brain, turn-based: slams the hero every N enemy turns (telegraphed during the player's turn
+// before), summons rats, enters phase 2 at half HP. Used by the elite (Rat King, wave 5) and the
+// chapter boss (Digger Mole, wave 10, which also digs a claw into the balloon room). Pure logic.
 import { config } from '../config';
+import type { BossKind } from '../levels';
 import type { Enemy } from './enemies';
 
 export interface BossActions {
@@ -10,16 +12,22 @@ export interface BossActions {
 
 export class BossBrain {
   readonly e: Enemy;
+  readonly kind: BossKind;
   enemyTurns = 0;
   phase2 = false;
   private actions: BossActions = { slam: false, summon: 0 };
 
   constructor(e: Enemy) {
     this.e = e;
+    this.kind = e.kind as BossKind;
+  }
+
+  private get cfg() {
+    return config.bosses[this.kind];
   }
 
   private get slamEvery(): number {
-    return this.phase2 ? config.boss.slamEveryPhase2 : config.boss.slamEvery;
+    return this.phase2 ? this.cfg.slamEveryPhase2 : this.cfg.slamEvery;
   }
 
   /** The coming enemy turn will be a slam (show the warning circle on the hero). */
@@ -31,7 +39,7 @@ export class BossBrain {
   act(): BossActions {
     this.enemyTurns++;
     this.actions.slam = this.enemyTurns % this.slamEvery === 0;
-    this.actions.summon = this.enemyTurns % config.boss.summonEvery === 0 ? config.boss.summonCount : 0;
+    this.actions.summon = this.enemyTurns % this.cfg.summonEvery === 0 ? this.cfg.summonCount : 0;
     return this.actions;
   }
 

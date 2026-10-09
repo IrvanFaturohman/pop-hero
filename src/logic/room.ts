@@ -6,6 +6,7 @@ import { config } from '../config';
 import { Balloon, BALLOON_TYPES, bonusAmount, tierFor, type BalloonMods, type BalloonType } from './balloon';
 import { clamp01 } from './math';
 import type { Rng } from './rng';
+import { Claw, clawPoint } from './claw';
 import { BalloonPhysics, shoveSpikes } from './physics';
 import { SpikeField, closest, type SpikePattern } from './spikes';
 
@@ -89,7 +90,9 @@ export const newRoomStats = (): RoomStats => ({
 export class BalloonRoom {
   readonly field = new SpikeField();
   readonly physics = new BalloonPhysics();
-  readonly mods: RoomMods = { inflateMult: 1, rMaxMult: 1, shields: 0, greedy: 0, nearMissExtra: 0 };
+  readonly mods: RoomMods = { inflateMult: 1, rMaxMult: 1, ammoMult: 1, shields: 0, greedy: 0, nearMissExtra: 0 };
+  /** Digger Mole claw (boss wave only). */
+  readonly claw = new Claw();
   readonly cheats: RoomCheats = { noPop: false };
   readonly events: RoomEvent[] = [];
   readonly flying: Balloon[] = [];
@@ -150,6 +153,8 @@ export class BalloonRoom {
 
     this.heldNow = input.held;
     this.field.step(dt);
+    this.claw.step(dt);
+    if (this.claw.active) for (const s of this.field.spikes) this.claw.bounce(s);
     if (input.pressed) this.holdValid = true;
 
     // Pattern swaps wait until no balloon is inflating or still rising through the room.
@@ -177,10 +182,11 @@ export class BalloonRoom {
         this.stepAttached(a, dt, input.held);
       }
     }
-    this.physics.step(this.flying, this.attached, dt);
+    this.physics.step(this.flying, this.attached, dt, this.claw);
     const burstY = config.layout.burstY;
     for (const b of this.flying) {
-      if (b.state === 'flying' && this.physics.joined(b, this.flying)) this.park(b);
+      if (b.state === 'flying') b.flyT += dt;
+      if (b.state === 'flying' && (this.physics.joined(b, this.flying) || b.flyT > config.balloon.stuckTime)) this.park(b);
       else if (b.state === 'escaping' && b.y < burstY) {
         b.state = 'done';
         this.events.push({ type: 'arrive', b, total: b.payout ? b.payout.total : b.total });
@@ -264,7 +270,15 @@ export class BalloonRoom {
   }
 
   private checkSpikes(b: Balloon): void {
-    const c = this.field.clearance(b.x, b.y);
+    let c = this.field.clearance(b.x, b.y);
+    let spikeIndex = this.field.lastIndex;
+    const cc = this.claw.clearance(b.x, b.y);
+    if (cc < c) {
+      c = cc;
+      closest.x = clawPoint.x;
+      closest.y = clawPoint.y;
+      spikeIndex = -1;
+    }
     const vis = c - b.r;
     b.clearance = vis;
     b.danger = clamp01(1 - vis / config.bonus.dangerDistance);
@@ -285,7 +299,7 @@ export class BalloonRoom {
         this.events.push({ type: 'shield', b, x: closest.x, y: closest.y });
         return;
       }
-      this.pop(b, b.attached ? 'spikeGrow' : 'spikeFly', this.field.lastIndex);
+      this.pop(b, b.attached ? 'spikeGrow' : 'spikeFly', spikeIndex);
       return;
     }
     b.ghosting = false;

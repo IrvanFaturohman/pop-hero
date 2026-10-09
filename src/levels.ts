@@ -1,32 +1,43 @@
-// Stage definitions: waves, spike patterns, boss. Structured so more stages can be added.
+// Stage definitions: waves, spike patterns, bosses. Structured so more stages (chapters) can be added.
 import type { BalloonType } from './logic/balloon';
 import type { SpikePattern } from './logic/spikes';
 
-export type EnemyKind = 'grunt' | 'runner' | 'tank' | 'boss';
+/** Rat, bunny, boar, bat, bear, Rat King (elite boss), Digger Mole (chapter boss). */
+export type EnemyKind = 'grunt' | 'runner' | 'tank' | 'flier' | 'brute' | 'ratking' | 'mole';
+export type BossKind = 'ratking' | 'mole';
+
+export const BOSS_KINDS: readonly EnemyKind[] = ['ratking', 'mole'];
+export const MINION_KINDS: readonly EnemyKind[] = ['grunt', 'runner', 'tank', 'flier', 'brute'];
+
+export function isBossKind(kind: EnemyKind): kind is BossKind {
+  return kind === 'ratking' || kind === 'mole';
+}
+
+export interface WaveBoss {
+  kind: BossKind;
+  /** Spike pattern once the boss is below half HP. */
+  phase2Pattern: string;
+}
 
 export interface WaveDef {
   /** Enemies in this wave (shuffled), arriving `perTurn` at a time on enemy turns. */
   enemies: Partial<Record<EnemyKind, number>>;
+  /** Enemies walking in per enemy turn; 0 = the whole wave at once (reference). */
   perTurn: number;
   /** Lock number each turn: your balloons must add up to at least this to open it and fire. */
   lock: number;
   pattern: string;
   /** Balloon types that can roll this wave. */
   balloonTypes: BalloonType[];
-}
-
-export interface BossDef {
-  phase1Pattern: string;
-  phase2Pattern: string;
-  balloonTypes: BalloonType[];
+  /** Elite / boss wave: the boss drops in behind the group. */
+  boss?: WaveBoss;
 }
 
 export interface StageDef {
   id: string;
   name: string;
   waves: WaveDef[];
-  boss: BossDef;
-  /** Validator strictness: patterns used by waves 1-3 use the stricter small-balloon rule. */
+  /** Validator strictness: patterns used by the first waves use the stricter small-balloon rule. */
   earlyPatterns: string[];
 }
 
@@ -56,22 +67,30 @@ export const patterns: Record<string, SpikePattern> = {
   boss2: { id: 'boss2', name: 'Boss phase 2', speedMult: 1.25, spikes: bouncers(200, B.a, B.b, B.c, B.d, B.e) }, // 68/46/28/16
 };
 
-const allTypes: BalloonType[] = ['normal', 'fire', 'ice', 'bomb', 'heal'];
+const specials: BalloonType[] = ['normal', 'star', 'fire', 'ice', 'bomb', 'heal'];
+const allTypes: BalloonType[] = [...specials, 'redstar'];
 
+/**
+ * Chapter 1, following the reference walkthrough: 10 short waves of small groups that walk in
+ * together, an elite (Rat King) at wave 5 and the chapter boss (Digger Mole) at wave 10. A card
+ * pick follows every wave except the last.
+ */
 export const stage1: StageDef = {
   id: 'stage1',
-  name: 'Stage 1',
-  // Turn-based (Claw Master style): smaller than the brief's real-time waves so a run stays ~3-5 min.
+  name: 'Whisper Woods',
   waves: [
-    // Hordes: 3 balloons per turn give ~3x the bullets, so enemies come in bigger groups.
-    // perTurn tuned so a good turn's bullets get used up (bot telemetry, waves 3-4 had surplus).
-    { enemies: { grunt: 12 }, perTurn: 4, lock: 30, pattern: 'w1', balloonTypes: ['normal'] },
-    { enemies: { grunt: 12, runner: 6 }, perTurn: 5, lock: 40, pattern: 'w2', balloonTypes: allTypes },
-    { enemies: { grunt: 12, runner: 8, tank: 2 }, perTurn: 6, lock: 50, pattern: 'w3', balloonTypes: allTypes },
-    { enemies: { grunt: 16, runner: 8, tank: 4 }, perTurn: 8, lock: 55, pattern: 'w4', balloonTypes: allTypes },
-    { enemies: { grunt: 20, runner: 12, tank: 4 }, perTurn: 8, lock: 60, pattern: 'w5', balloonTypes: allTypes },
+    { enemies: { grunt: 1 }, perTurn: 0, lock: 7, pattern: 'w1', balloonTypes: ['normal', 'star'] },
+    { enemies: { grunt: 3 }, perTurn: 0, lock: 8, pattern: 'w1', balloonTypes: specials },
+    { enemies: { grunt: 2, tank: 1 }, perTurn: 0, lock: 9, pattern: 'w2', balloonTypes: specials },
+    { enemies: { tank: 3 }, perTurn: 0, lock: 10, pattern: 'w2', balloonTypes: allTypes },
+    { enemies: { grunt: 4 }, perTurn: 0, lock: 11, pattern: 'w3', balloonTypes: allTypes, boss: { kind: 'ratking', phase2Pattern: 'w4' } },
+    { enemies: { tank: 2, flier: 1 }, perTurn: 0, lock: 11, pattern: 'w3', balloonTypes: allTypes },
+    { enemies: { grunt: 4, brute: 1 }, perTurn: 0, lock: 12, pattern: 'w3', balloonTypes: allTypes },
+    { enemies: { grunt: 3, tank: 2, flier: 2 }, perTurn: 0, lock: 12, pattern: 'w4', balloonTypes: allTypes },
+    { enemies: { grunt: 2, tank: 2, brute: 1, runner: 1 }, perTurn: 0, lock: 13, pattern: 'w4', balloonTypes: allTypes },
+    // the claw already crowds the room: boss1 spikes (3 balls), phase 2 adds one
+    { enemies: { grunt: 3 }, perTurn: 0, lock: 13, pattern: 'boss1', balloonTypes: allTypes, boss: { kind: 'mole', phase2Pattern: 'w4' } },
   ],
-  boss: { phase1Pattern: 'boss1', phase2Pattern: 'boss2', balloonTypes: allTypes },
   earlyPatterns: ['w1', 'w2', 'w3'],
 };
 

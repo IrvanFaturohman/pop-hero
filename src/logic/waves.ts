@@ -1,12 +1,13 @@
 // Waves for the turn-based battle: each wave's enemies are shuffled (seeded) and split into groups
-// that walk in one group per enemy turn. Pure logic.
-import type { EnemyKind, StageDef, WaveDef } from '../levels';
+// that walk in one group per enemy turn (perTurn 0 = the whole wave walks in at once, reference).
+// Pure logic.
+import { MINION_KINDS, type EnemyKind, type StageDef, type WaveDef } from '../levels';
 import type { Rng } from './rng';
 
 /** Shuffled enemy groups for a wave, `perTurn` each. Deterministic for a seed. */
 export function buildGroups(wave: WaveDef, rng: Rng): EnemyKind[][] {
   const kinds: EnemyKind[] = [];
-  for (const k of ['grunt', 'runner', 'tank'] as EnemyKind[]) {
+  for (const k of MINION_KINDS) {
     for (let i = 0; i < (wave.enemies[k] ?? 0); i++) kinds.push(k);
   }
   for (let i = kinds.length - 1; i > 0; i--) {
@@ -14,7 +15,7 @@ export function buildGroups(wave: WaveDef, rng: Rng): EnemyKind[][] {
     [kinds[i], kinds[j]] = [kinds[j], kinds[i]];
   }
   const groups: EnemyKind[][] = [];
-  const per = Math.max(1, wave.perTurn);
+  const per = wave.perTurn > 0 ? wave.perTurn : Math.max(1, kinds.length);
   for (let i = 0; i < kinds.length; i += per) groups.push(kinds.slice(i, i + per));
   return groups;
 }
@@ -50,11 +51,20 @@ export class WaveRunner {
     return this.hasMoreGroups ? this.groups[this.next++] : [];
   }
 
+  get isLast(): boolean {
+    return this.index >= this.waveCount - 1;
+  }
+
   /** Advance to the next wave; false if the stage is done. */
   nextWave(): boolean {
     if (this.index + 1 >= this.waveCount) return false;
     this.load(this.index + 1);
     return true;
+  }
+
+  /** Debug: jump to wave i (0-based). */
+  goTo(i: number): void {
+    this.load(Math.max(0, Math.min(this.waveCount - 1, i)));
   }
 
   /** Debug: drop the remaining groups of this wave. */

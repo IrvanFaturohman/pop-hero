@@ -51,8 +51,9 @@ export class LockView {
     this.c = scene.add.container(config.layout.width / 2, config.layout.ropeY + BODY_H / 2 + 6, [this.shackle, body, this.text]);
     this.c.setVisible(false);
     layer.add(this.c);
-    // this turn's balloons ("moves"), right of the lock
-    for (let i = 0; i < config.turns.balloonsPerTurn; i++) {
+    // this turn's balloons ("moves") or, with no limit, the next balloon types, right of the lock
+    const n = Math.max(config.turns.balloonsPerTurn, config.spawn.queueSize);
+    for (let i = 0; i < n; i++) {
       const img = scene.add.image(0, 0, 'balloon_n0').setDisplaySize(30, 30).setVisible(false);
       layer.add(img);
       this.icons.push(img);
@@ -140,14 +141,15 @@ export class LockView {
     }
     this.c.setY(y).setScale(scale).setAngle(angle);
 
-    // balloon icons: full = still to blow, faded = used
+    // balloon icons: full = still to blow, faded = used (no limit: just the next balloon types)
     const total = this.icons.length;
+    const unlimited = movesLeft < 0;
     for (let i = 0; i < total; i++) {
       const img = this.icons[i];
       img.setVisible(active && this.c.visible);
       if (!img.visible) continue;
-      const left = i >= total - movesLeft;
-      const qi = i - (total - movesLeft);
+      const left = unlimited || i >= total - movesLeft;
+      const qi = unlimited ? i : i - (total - movesLeft);
       const type = left ? queue[qi] ?? 'normal' : 'normal';
       img.setTexture(type === 'normal' ? `balloon_n${(i * 2) % config.palette.balloonColors.length}` : `balloon_${type}`);
       img.setPosition(L.roomRight - 30 - (total - 1 - i) * 34, L.roomBottom - 70 + Math.sin(this.t * 3 + i) * 2);

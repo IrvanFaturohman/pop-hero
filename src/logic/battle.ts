@@ -1,33 +1,39 @@
 // Upper arena logic, turn-based (Claw Master style): the hero fires its whole ammo as a volley
-// (bombs first), then every enemy hits the hero (burning ones take damage, frozen ones skip; the
-// boss slams / summons on its own schedule). Pure logic, deterministic for a given seed.
+// (bombs first), then every enemy hits the hero (burning ones take damage, frozen / stunned ones
+// skip; a boss slams / summons on its own schedule). Hero numbers come from the meta upgrades
+// (HeroBase) and the ability cards (HeroMods). Pure logic, deterministic for a given seed.
 import { config } from '../config';
-import type { EnemyKind } from '../levels';
+import { isBossKind, type BossKind, type EnemyKind } from '../levels';
 import { AmmoPool, type AmmoKind } from './ammo';
 import type { BalloonType } from './balloon';
-import { tokenCount, tokenDelay, type BattleEvent, type Bomb, type Bullet, type Delivery, type PendingAttack } from './battleTypes';
+import { baseMods, tokenCount, tokenDelay, type BattleEvent, type Bomb, type Bullet, type Delivery, type HeroMods, type PendingAttack } from './battleTypes';
 import { BossBrain } from './boss';
 import { Enemy, slotPos } from './enemies';
+import type { HeroBase } from './meta';
 import type { Rng } from './rng';
 import { Weapons } from './weapons';
 
 export { MAX_BULLETS, tokenCount, tokenDelay } from './battleTypes';
-export type { BattleEvent, Bullet } from './battleTypes';
+export type { BattleEvent, Bullet, HeroMods } from './battleTypes';
+
+/** Second Wind brings the hero back to this HP fraction. */
+const SECOND_WIND_HP = 0.4;
 
 export class Battle {
-  hp = config.hero.hp;
+  hp: number;
   dead = false;
   readonly ammoPool = new AmmoPool();
   readonly enemies: Enemy[] = [];
   readonly events: BattleEvent[] = [];
   readonly weapons: Weapons;
   boss: BossBrain | null = null;
-  /** Upgrades. */
-  damageBonus = 0;
-  critChance = 0;
-  pierce = 0;
-  twin = 0;
-  vampire = 0;
+  /** From the meta upgrades. */
+  bulletDamage: number;
+  armor: number;
+  private baseMaxHp: number;
+  /** From the ability cards. */
+  mods: HeroMods = baseMods();
+  private secondWindUsed = false;
   damageTaken = 0;
   /** What dealt the last damage to the hero (telemetry: cause of defeat). */
   lastDamageBy: string | null = null;
@@ -42,8 +48,25 @@ export class Battle {
   readonly leftoverPerWave: number[] = [];
   hpFromLeftover = 0;
 
-  constructor(rng: Rng) {
+  constructor(rng: Rng, base?: HeroBase) {
+    this.bulletDamage = base?.bulletDamage ?? config.hero.bulletDamage;
+    this.armor = base?.armor ?? 0;
+    this.baseMaxHp = base?.maxHp ?? config.hero.hp;
+    this.hp = this.baseMaxHp;
     this.weapons = new Weapons(this, rng);
+  }
+
+  get maxHp(): number {
+    return Math.round(this.baseMaxHp * this.mods.hpMult);
+  }
+
+  /** New card numbers; a bigger max HP also heals by the difference. */
+  setMods(m: HeroMods): void {
+    const before = this.maxHp;
+    this.mods = m;
+    const gain = this.maxHp - before;
+    if (gain > 0 && !this.dead) this.hp += gain;
+    this.hp = Math.min(this.hp, this.maxHp);
   }
 
   get bullets(): readonly Bullet[] {
@@ -90,7 +113,7 @@ export class Battle {
   /** A new enemy walks in from the right edge into the next free formation slot. */
   spawnEnemy(kind: EnemyKind): Enemy {
     let i = 0;
-    for (const o of this.enemies) if (o.alive && o.kind !== 'boss') i++;
+    for (const o of this.enemies) if (o.alive && !isBossKind(o.kind)) i++;
     const slot = slotPos(i, kind);
     const e = new Enemy(kind, slot.y);
     e.moveTo(slot.x, slot.y, config.enemies.moveTime * 1.6);
@@ -100,10 +123,10 @@ export class Battle {
   }
 
   /** The boss drops in from above behind the formation. */
-  spawnBoss(): Enemy {
+  spawnBoss(kind: BossKind): Enemy {
     const L = config.layout;
-    const r = config.enemies.boss.radius;
-    const e = new Enemy('boss', -r * 2);
+    const r = config.enemies[kind].radius;
+    const e = new Enemy(kind, -r * 2);
     e.x = e.prevX = config.boss.x;
     e.moveTo(config.boss.x, L.groundY - r * 0.8, 0.55);
     this.enemies.push(e);
@@ -117,7 +140,7 @@ export class Battle {
   reform(): void {
     let i = 0;
     for (const e of this.enemies) {
-      if (!e.alive || e.kind === 'boss') continue;
+      if (!e.alive || isBossKind(e.kind)) continue;
       const p = slotPos(i++, e.kind);
       e.moveTo(p.x, p.y, config.enemies.moveTime);
     }
@@ -141,7 +164,7 @@ export class Battle {
   heal(n: number): void {
     if (n <= 0 || this.dead) return;
     const before = this.hp;
-    this.hp = Math.min(config.hero.hp, this.hp + n);
+    this.hp = Math.min(this.maxHp, this.hp + n);
     if (this.hp > before) this.events.push({ type: 'heal', amount: this.hp - before });
   }
 
@@ -163,22 +186,23 @@ export class Battle {
     return best;
   }
 
-  /** Enemy turn: burns tick, then everyone hits the hero (frozen ones skip), the boss acts. */
+  /** Enemy turn: burns tick, then everyone hits the hero (frozen / stunned skip), the boss acts. */
   startEnemyTurn(): void {
     const ec = config.enemies;
     for (const e of this.enemies) {
       if (!e.alive || e.burn <= 0) continue;
       e.burn--;
-      this.damage(e, config.effects.burnDamage);
       this.events.push({ type: 'burn', e, dmg: config.effects.burnDamage });
+      this.damage(e, config.effects.burnDamage);
     }
-    const order = this.enemies.filter((e) => e.alive && e.kind !== 'boss').sort((a, b) => a.x - b.x);
+    const order = this.enemies.filter((e) => e.alive && !isBossKind(e.kind)).sort((a, b) => a.x - b.x);
     const stagger = Math.min(ec.attackStagger, ec.attackTurnMax / Math.max(1, order.length));
     let k = 0;
     for (const e of order) {
-      if (e.frozen) {
+      if (e.frozen || e.stunned) {
+        this.events.push({ type: e.frozen ? 'frozenSkip' : 'stunSkip', e });
         e.frozen = false;
-        this.events.push({ type: 'frozenSkip', e });
+        e.stunned = false;
         continue;
       }
       this.attacks.push({ t: k++ * stagger, e, started: false });
@@ -198,9 +222,9 @@ export class Battle {
     this.enemyTurnEnd = end;
   }
 
-  /** Debug / boss death: remove every enemy. */
+  /** Debug: remove every enemy. */
   killAll(): void {
-    for (const e of this.enemies) if (e.alive) this.kill(e);
+    for (const e of this.enemies) if (e.alive) this.kill(e, false);
   }
 
   step(dt: number): void {
@@ -226,17 +250,14 @@ export class Battle {
       this.deliveries.splice(i, 1);
       if (dl.kind === 'bomb') this.weapons.bombsReady.push(Math.round(dl.amount * config.effects.bombDamageMult));
       else if (dl.kind === 'heal') this.heal(Math.round(dl.amount * config.effects.healMult));
-      else {
-        this.ammoPool.add(dl.kind, dl.amount);
-        if (this.vampire > 0) this.heal(dl.amount * this.vampire);
-      }
+      else this.ammoPool.add(dl.kind, dl.amount);
       this.events.push({ type: 'ammoLand', index: dl.index, amount: dl.amount });
     }
   }
 
   /**
    * Wave clear: bullets carry over between turns (reference) but not between waves. Every leftover
-   * bullet flows into the HP bar (`leftover.bulletsPerHp` per HP), a chunk at a time so the view
+   * bullet flows into the HP bar (`leftover.hpPerBullet` HP each), a chunk at a time so the view
    * can animate it; the ammo ends at 0.
    */
   startCashIn(): void {
@@ -261,13 +282,13 @@ export class Battle {
     c.timer -= dt;
     while (c.timer <= 0 && c.left > 0) {
       const n = Math.min(c.left, c.chunk);
-      const before = Math.floor(c.bullets / config.leftover.bulletsPerHp);
+      const before = Math.floor(c.bullets * config.leftover.hpPerBullet);
       this.ammoPool.drop(n);
       c.left -= n;
       c.bullets += n;
-      const gain = Math.floor(c.bullets / config.leftover.bulletsPerHp) - before;
+      const gain = Math.floor(c.bullets * config.leftover.hpPerBullet) - before;
       // silent heal: the view shows one "+N HP" at the end instead of a popup per chunk
-      const hp = this.dead ? this.hp : Math.min(config.hero.hp, this.hp + gain);
+      const hp = this.dead ? this.hp : Math.min(this.maxHp, this.hp + gain);
       c.healed += hp - this.hp;
       this.hp = hp;
       this.events.push({ type: 'cashIn', amount: n, index: c.index++ });
@@ -293,40 +314,49 @@ export class Battle {
       this.attacks.splice(i, 1);
       if (!a.e.alive || this.dead) continue;
       this.lastDamageBy = a.e.kind;
-      this.hurt(a.e.stats.damage);
-      this.events.push({ type: 'attack', e: a.e, dmg: a.e.stats.damage });
+      const dmg = this.hurt(a.e.stats.damage);
+      this.events.push({ type: 'attack', e: a.e, dmg });
     }
     if (this.slamAt >= 0 && this.enemyTurnT >= this.slamAt && this.boss) {
       this.slamAt = -1;
-      const dmg = config.enemies.boss.damage;
       if (this.boss.e.alive && !this.dead) {
-        this.lastDamageBy = 'boss slam';
-        this.hurt(dmg);
+        this.lastDamageBy = `${this.boss.kind} slam`;
+        const dmg = this.hurt(this.boss.e.stats.damage);
         this.events.push({ type: 'bossSlam', e: this.boss.e, dmg });
       }
     }
     if (this.enemyTurnT >= this.enemyTurnEnd && this.attacks.length === 0 && this.slamAt < 0) this.enemyTurnT = -1;
   }
 
-  private hurt(dmg: number): void {
-    if (config.debug.godMode) return;
+  /** Armor takes a flat bite out of every hit (at least 1 gets through). Returns the damage dealt. */
+  private hurt(raw: number): number {
+    if (config.debug.godMode) return 0;
+    const dmg = Math.max(1, raw - this.armor);
     this.hp = Math.max(0, this.hp - dmg);
     this.damageTaken += dmg;
     if (this.hp <= 0 && !this.dead) {
+      if (this.mods.secondWind && !this.secondWindUsed) {
+        this.secondWindUsed = true;
+        this.hp = Math.round(this.maxHp * SECOND_WIND_HP);
+        this.events.push({ type: 'secondWind', hp: this.hp });
+        return dmg;
+      }
       this.dead = true;
       this.events.push({ type: 'heroDead' });
     }
+    return dmg;
   }
 
   damage(e: Enemy, dmg: number): void {
     if (!e.alive) return;
     e.hp -= dmg;
     if (this.boss && e === this.boss.e && this.boss.checkPhase2()) this.events.push({ type: 'bossPhase2', e });
-    if (e.hp <= 0) this.kill(e);
+    if (e.hp <= 0) this.kill(e, true);
   }
 
-  private kill(e: Enemy): void {
+  private kill(e: Enemy, byHero: boolean): void {
     e.alive = false;
     this.events.push({ type: 'kill', e });
+    if (byHero && this.mods.lifesteal > 0) this.heal(Math.max(1, Math.round(this.maxHp * this.mods.lifesteal)));
   }
 }

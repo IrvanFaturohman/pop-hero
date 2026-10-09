@@ -1,19 +1,81 @@
 # DESIGN NOTES — Pop Hero (prototype)
 
-## 0b. Ringkasan desain sekarang (2026-10-08)
+## 0c. Analisis video Claw Master dari YouTube (2026-10-09)
 
-Satu giliran: tiup ≤3 balon di ruang Puff Up (duri hanya berbahaya saat meniup) → balon mendorong rantai, nilainya masuk ke gembok → gembok terpenuhi = rantai putus, balon lolos & pecah jadi peluru → hero menembak (Claw Master) → semua musuh menyerang → giliran berikutnya. Antar gelombang: kartu upgrade. Gelombang 2+: balon spesial. Setelah gelombang 5: boss.
+Sumber: youtube.com/watch?v=AxqvqGEy6BU (22 menit, 3 run: kalah di gelombang 5, kalah di boss, menang). File lokal `references/clawmaster_yt.mp4`, 1 frame/detik di `references/frames/yt/`, lembar kontak bertanda waktu di `references/frames/yt_sheets/` (semua di-gitignore). Yang diikuti adalah mekanik dan alurnya; karakter dan art tetap digambar sendiri.
 
-Ruang balon terbuka di atas (tanpa tembok atas, seperti referensi): rantai dipasang di atas dinding samping dan jadi satu-satunya penahan balon.
+**Satu run = 1 chapter ("Enchanted Forest"), 10 gelombang.**
+- Progress bar di atas layar: satu node per gelombang (hijau ✓ selesai, oranye = gelombang elite ke-5, merah tengkorak = boss ke-10). Muncul sebentar saat pergantian gelombang.
+- Musuh satu gelombang masuk sekaligus sebagai kelompok kecil. Isi gelombang di run 2: 1) 1 tikus · 2) 3 tikus · 3) 2 tikus + 1 babi hutan · 4) 3 babi · 5) tikus raksasa (mini-boss) + 4–5 tikus · 6) 2 babi + 1 lebah · 7) 4 tikus + beruang · 8) tikus + babi + lebah (~7) · 9) 2 babi + tikus · 10) banner "BOSS incoming!!" → cacing berduri + tikus.
+- Setelah **setiap** gelombang (termasuk gelombang 9, tepat sebelum boss): "Select a new ability".
+- Akhir run: DEFEAT atau VICTORY + hadiah koin (x90 saat kalah di gelombang 5, x350 saat menang). Durasi: ~5 menit (kalah gel. 5), ~10 menit (kalah di boss), ~6 menit (menang).
 
-Peluru: sisa peluru terbawa antar giliran dalam satu wave (seperti Claw Master). Saat wave selesai, sisanya ditukar jadi HP (4 peluru = 1 HP) dan peluru kembali ke 0, jadi tidak menumpuk antar wave dan gagal gembok tetap terasa.
+**Satu giliran.**
+1. Mesin capit di bawah berisi tumpukan bola. Tahan & geser = capit bergerak kiri-kanan (ada kolom bayangan di bawahnya), lepas = capit turun, menjepit beberapa bola, lalu naik.
+2. Bola dilempar melengkung ke hero; bintang terbang ke HUD. Kamera zoom ke arena, mesin tersembunyi.
+3. Hero menembakkan semua peluru (angka di bawah bar HP turun), angka damage muncul di atas musuh, musuh berkedip putih.
+4. Musuh yang sudah dekat menyerang hero, yang lain maju. Kembali ke mesin capit.
+- Tumpukan makin tipis tiap giliran; saat tinggal sedikit muncul **"BONUS"** dan tumpukan diisi ulang dengan kilau emas.
+- Sisa peluru tetap tersimpan antar gelombang (di Pop Hero sisa peluru jadi HP, keputusanmu, tetap dipakai).
 
-Angka utama (semua di `config.ts` / `levels.ts`): gembok 30/40/50/55/60, boss 65; musuh per giliran 4/5/6/8/8; duri 200–230 px/s; HP hero 150; musuh HP 12/6/50 (boss 600), damage per serangan 4/3/8 (slam 15); 3 balon per giliran.
+**Isi tumpukan.** Bola putih = peluru; oranye = api; ungu = bom; kepingan salju cyan = es; hati merah = heal; **bintang kuning** = mata uang kartu; **bintang merah** = mata uang langka. Run pertama hanya putih + oranye + bintang; run berikutnya lebih beragam.
+
+**Kartu kemampuan.**
+- 3 kartu per pilihan. Tiap kemampuan punya **3 level** (3 permata di kartu); mengambil kartu yang sama menaikkan level.
+- Harga: level 1 **Free**, level 2 = 1 bintang kuning, level 3 = 3 bintang kuning. Tombol abu-abu kalau bintang tidak cukup.
+- Kemampuan yang sudah level 3 bisa muncul sebagai **kartu merah (evolusi)** seharga 1 bintang merah, mis. Crit Chance → "Large Bullets trigger Execution".
+- Kemampuan yang dimiliki tampil sebagai ikon kecil berpermata di kiri atas, di bawah penghitung bintang.
+- Daftar (angka level 1 → 3 sejauh terbaca): Multishot (+1 peluru, tembakan ekstra 30% damage), Attack Damage (+15%), Bounce (memantul 1×/30% → 2×/50%), Lifesteal (pulih 3% HP tiap musuh mati), Claw Size (+7% → +10%), Crit Chance (+5% → +7% → +15%), Crit Damage (+20% → +50%), Health Boost (HP maks +20%), Knockback (dorong musuh kecil, 10% force).
+
+**Boss.** Gelombang 5: tikus raksasa bersama tikus kecil. Gelombang 10: cacing berduri; badannya **menjulur masuk ke mesin capit** dari samping (posisinya pindah tiap giliran) dan menghalangi capit. Bola es membekukan boss (berwarna cyan).
+
+**Meta (di luar run).**
+- Home: chapter "1 Enchanted Forest", tombol START (biaya 5 energi, energi 25/25), ikon Chapter Rewards & Patrol, navigasi bawah Battle + Upgrades (tab lain terkunci).
+- Setelah run pertama: popup "NEW FEATURE! UNLOCKED UPGRADES" dan tangan tutorial ke tab Upgrades.
+- Upgrades: pangkat hero "Apprentice 1" dengan bar ke "Apprentice 2" (hadiah di 10 dan 20), 3 stat permanen DAMAGE +5, HEALTH +10, ARMOR +1, masing-masing 10 koin.
+
+**Beda dengan Pop Hero sekarang.**
+
+| Aspek | Video | Pop Hero sekarang |
+|---|---|---|
+| Panjang run | 10 gelombang, elite di 5, boss di 10 | 5 gelombang + boss |
+| Musuh | kelompok kecil per gelombang (1–8), masuk sekaligus | 12–36 per gelombang, masuk 4–8 per giliran |
+| Jenis musuh | tikus, babi hutan, lebah (terbang), beruang, tikus raksasa, cacing | grunt, runner, tank, Rat King |
+| Progress | bar node di atas | banner "WAVE n" |
+| Kartu | 9 kemampuan × 3 level, harga bintang, kartu evolusi | 11 kartu berkelangkaan, tanpa level/harga |
+| Mata uang run | bintang kuning & merah dari tumpukan | tidak ada |
+| Meta | koin, upgrade permanen, pangkat hero, chapter, energi | tidak ada |
+| Boss | badan cacing masuk ke mesin capit | Rat King: slam + panggil tikus |
+| Sumber peluru | mesin capit | ruang balon (Puff Up) |
+
+## 0b. Ringkasan desain sekarang (2026-10-09, mengikuti video §0c)
+
+**Alur besar**: Title → **Home** (koin, chapter "1 WHISPER WOODS", START, tab UPGRADES) → run 10 gelombang → layar VICTORY/DEFEAT + koin → Home. Koin membeli upgrade permanen (Damage +1, Health +15, Armor +1 per level); tiap 10 level pangkat hero naik ("APPRENTICE n") dan dapat +100 koin. Tab UPGRADES terbuka setelah run pertama (popup "NEW FEATURE!"). Tidak ada energi (keputusanmu).
+
+**Satu giliran**: tiup balon di ruang Puff Up **sebanyak yang perlu** (tanpa batas 3 balon, keputusanmu 2026-10-09) → balon mendorong rantai, nilainya masuk ke gembok → gembok terpenuhi = rantai putus, balon pecah jadi peluru → hero menembak → semua musuh menyerang. Tidak ada giliran gagal lagi: balon yang meletus hanya membuang waktu (dan bintangnya). Sumber peluru tetap balon (keputusanmu), bukan capit.
+
+**Satu run = 10 gelombang kecil** yang masuk sekaligus (seperti video): 1 tikus · 3 tikus · 2 tikus + babi · 3 babi · **elite Rat King** + 4 tikus · 2 babi + kelelawar · 4 tikus + beruang · 3 tikus + 2 babi + 2 kelelawar · 2 tikus + 2 babi + beruang + kelinci · **boss Digger Mole** + 3 tikus. Progress bar node di atas (hijau ✓, oranye = elite, tengkorak merah = boss). Kartu kemampuan setelah tiap gelombang kecuali yang terakhir.
+
+**Kartu kemampuan** (9 × 3 level): Multishot, Attack Damage, Bounce, Lifesteal, Balloon Power (pengganti "Claw Size"), Crit Chance, Crit Damage, Health Boost, Knockback. Level 1 gratis, level 2 = 1★, level 3 = 3★. Setelah level 3 bisa muncul **kartu evolusi merah** (1 ★ merah): Crit Chance → Execution (dari video), Bounce → Ricochet, Health Boost → Second Wind. Minimal satu kartu selalu bisa dibeli; kalau tidak ada, muncul SKIP. Kemampuan yang dimiliki tampil sebagai ikon berpermata di kiri atas.
+
+**Bintang**: balon bintang emas (+1★) dan balon putih berbintang merah (+1★ merah, mulai gelombang 4) ikut acak di antrean balon. Bintang ikut hilang kalau gembok gagal. Bintang hanya berlaku dalam satu run.
+
+**Boss Digger Mole** (desain sendiri: tikus tanah berhelm tambang): tiap giliranmu ia menggali cakar dari dinding kiri/kanan ruang balon di ketinggian acak (bergantian sisi). Balon yang sedang ditiup meletus kalau kena cakar; balon yang dilepas memantul di sekitarnya; duri juga memantul. Slam tiap 2 giliran musuh (fase 2: tiap giliran, cakar lebih panjang), panggil 2 tikus tiap 3 giliran. Rat King di gelombang 5 sama seperti dulu (slam + panggil tikus + fase 2).
+
+**Tembakan & peluru** (diukur dari video, M6.2): hero menembak satu per satu, ~2,8 tembakan/detik; balon penuh = 10 peluru; satu giliran ~10–18 peluru (video 9–15).
+
+**Sisa peluru**: tetap jadi HP saat gelombang selesai (keputusanmu sebelumnya; di video sisa peluru terbawa). 1 peluru = 3 HP.
+
+**Angka utama** (`config.ts` / `levels.ts`): skala seperti video, peluru 30 damage, HP hero 300. Gembok 7/8/9/10/11/11/12/12/13/13. HP musuh: tikus 210, kelinci 120, babi 520, kelelawar 270, beruang 1240, Rat King 2100, Digger Mole 5200. Damage per serangan 16/12/30/18/46, slam 56/72. Koin: 22 per gelombang + 130 kalau menang (≈90 kalau kalah di gelombang 5, 350 kalau menang, mirip video).
+
+**Simulasi bot** (20 seed, bot meniup 0.55–0.8 dan menghindari duri tanpa menggeser balon, tanpa batas balon): tanpa upgrade permanen menang 25% (kalah di gelombang 5–9, mirip run pertama di video); dengan 5 level upgrade 60%; dengan 11 level 90%. Satu run 3–9 menit, elite dan boss masing-masing ~6–7 giliran. Tanpa batas balon, ruang balon tidak punya kondisi gagal; tekanannya tinggal waktu, bintang yang hilang kalau balon bintang meletus, dan sisa peluru (balon besar = lebih banyak sisa = lebih banyak HP di akhir gelombang).
 
 **Pertanyaan terbuka**:
-1. ~~Duri terlalu gampang?~~ Kamu: "lebih cepat aja" → duri ~1.5× lebih cepat (M5.1). Catatan: bot uji bereaksi tiap frame (lepas begitu duri dekat) jadi tetap jarang meletus; perlu dirasakan langsung di HP. Kalau masih gampang, opsi berikutnya: lebih banyak bola, bola lebih besar, atau duri yang mengejar.
-2. Kartu *Rapid Fire* diganti *Critical Shot* (dari daftar ability Claw Master) karena kecepatan volley tidak berarti di sistem giliran. Oke?
-3. Es di versi giliran = musuh beku melewatkan 1 serangan (brief: lambat 30% selama 2 detik). Oke, atau terlalu kuat?
+1. Evolusi: di video hanya terlihat satu (Crit Chance → Execution). Ricochet dan Second Wind tambahan saya supaya bintang merah berguna. Oke, atau mau evolusi lain?
+2. Knockback: battle kita tidak punya jarak (musuh menyerang tiap giliran), jadi Knockback = peluang musuh kecil kehilangan 1 serangan (10/20/30%). Oke?
+3. Kartu balon lama (Thick Rubber, Slow Gears, Near-Miss Pro, Greedy, Big Lungs, Pierce, Twin Shot) dihapus supaya daftar sama dengan video. Mau ada yang dikembalikan?
+4. "BONUS" isi ulang tumpukan di video tidak punya padanan di balon, jadi dilewati.
+5. ~~Rapid Fire / Critical Shot~~ dan ~~es~~: tetap seperti sebelumnya (Crit Chance dari video; es = musuh lewat 1 serangan).
 
 ## 0a. Aturan utama: referensi > brief (2026-10-08, kamu)
 

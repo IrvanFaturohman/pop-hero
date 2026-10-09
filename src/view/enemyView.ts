@@ -4,7 +4,7 @@ import Phaser from 'phaser';
 import { config, hex } from '../config';
 import { easeOutQuad } from '../juice/ease';
 import { Spring } from '../juice/spring';
-import type { Enemy } from '../logic/enemies';
+import { FLY_HEIGHT, type Enemy } from '../logic/enemies';
 import { TAU, lerp } from '../logic/math';
 import { ENEMY_TEX_SCALE } from './texturesEnemy';
 
@@ -149,7 +149,10 @@ export class EnemyView {
     }
     x -= dash * s.dashDist;
     y -= hop * r * 0.3 + Math.sin(dash * Math.PI) * 18;
-    const breathe = Math.sin(this.t * 4 + s.phase) * 0.03;
+    // fliers hover and flap (wing beat squashes the sprite)
+    const fly = e.stats.fly;
+    if (fly) y += Math.sin(this.t * 5 + s.phase) * 7;
+    const breathe = fly ? Math.sin(this.t * 22 + s.phase) * 0.08 : Math.sin(this.t * 4 + s.phase) * 0.03;
     const sq = s.squash.update(dt) * 0.05 + (e.moving ? (hop - 0.5) * 0.1 : breathe);
     s.body
       .setPosition(x, y)
@@ -158,9 +161,10 @@ export class EnemyView {
     s.flashT = Math.max(0, s.flashT - dt);
     if (s.flashT > 0) s.body.setTintFill(0xffffff);
     else if (e.frozen) s.body.setTint(0x8fe3ff);
+    else if (e.stunned) s.body.setTint(0xfff0a0);
     else if (e.burn > 0) s.body.setTint(Math.sin(this.t * 12) > 0 ? 0xffa060 : 0xffd0a0);
     else s.body.clearTint();
-    s.shadow.setPosition(x, e.y + r * 0.85).setScale(1 - hop * 0.3, 1);
+    s.shadow.setPosition(x, e.y + (fly ? FLY_HEIGHT : 0) + r * 0.85).setScale(fly ? 0.55 : 1 - hop * 0.3, 1);
 
     // "!" above an attacking enemy
     const attacking = s.dashT < ec.attackTime;
