@@ -18,7 +18,7 @@ export class CameraRig {
     world: Phaser.GameObjects.Layer[],
   ) {
     const L = config.layout;
-    this.cy = this.targetCY = L.height / 2;
+    this.cy = this.targetCY = config.camera.blowCenterY;
     const cam = scene.cameras.main;
     cam.setZoom(rs).centerOn(L.width / 2, L.height / 2);
     const uiCam = scene.cameras.add(0, 0, scene.scale.width, scene.scale.height);
@@ -27,10 +27,15 @@ export class CameraRig {
     uiCam.ignore(world);
   }
 
-  /** Zoom into the battle strip (true) or show the whole screen (false). */
+  /** Zoom into the battle strip (true) or pan down onto the balloon room (false). */
   battle(on: boolean): void {
     this.targetZoom = on ? config.camera.battleZoom : 1;
-    this.targetCY = on ? config.camera.battleCenterY : config.layout.height / 2;
+    this.targetCY = on ? config.camera.battleCenterY : config.camera.blowCenterY;
+  }
+
+  /** World y minus screen y at zoom 1 (taps in the room are converted with it). */
+  get offsetY(): number {
+    return this.cy - config.layout.height / 2;
   }
 
   update(realDt: number, shake: Shake): void {

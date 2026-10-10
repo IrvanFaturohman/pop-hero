@@ -1,14 +1,13 @@
-// End-of-run screen (reference): VICTORY / DEFEAT, REWARDS (coins for the home screen), run stats
-// (brief §12), CONTINUE (to the home screen) and COPY STATS.
+// End-of-run screen in the pack's PopupDim_Play_Result_Victory / Defeat layout: badge art with a
+// rotating glow, VICTORY (sky ribbon) or DEFEAT (red ribbon), REWARDS divider with the coin tile,
+// a compact run-stats card, CONTINUE (to the home screen) and COPY STATS.
 import Phaser from 'phaser';
 import { abilities, evolutions } from '../abilities';
-import { config, hex } from '../config';
+import { config } from '../config';
 import { easeOutBack } from '../juice/ease';
 import type { RunStats } from '../logic/telemetry';
 import { strings } from '../strings';
-import { pressable } from './hud';
-
-const FONT = 'Fredoka, system-ui, sans-serif';
+import { U, button, dim, dividerTitle, itemFrame, sprite, text } from './gui';
 
 function fmtTime(sec: number): string {
   const m = Math.floor(sec / 60);
@@ -16,8 +15,12 @@ function fmtTime(sec: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+/** Prefab y (canvas units, center = 0, up) -> game y. */
+const Y = (y: number) => 640 - y * U;
+
 export class ResultScreen {
   private root: Phaser.GameObjects.Container;
+  private glow: Phaser.GameObjects.GameObject | null = null;
   private t = 0;
   onContinue: () => void = () => {};
   onTap: () => void = () => {};
@@ -25,7 +28,7 @@ export class ResultScreen {
   constructor(
     private scene: Phaser.Scene,
     layer: Phaser.GameObjects.Layer,
-    private textRes: number,
+    _textRes: number,
   ) {
     this.root = scene.add.container(0, 0).setVisible(false);
     layer.add(this.root);
@@ -38,32 +41,24 @@ export class ResultScreen {
   show(stats: RunStats, coins: number): void {
     const s = this.scene;
     const L = config.layout;
+    const cx = L.width / 2;
     this.root.removeAll(true);
     this.t = 0;
     const won = stats.result === 'victory';
-    const dim = s.add.rectangle(L.width / 2, L.height / 2, L.width + 200, L.height + 200, 0x0a0618, 0.8).setInteractive();
-    const text = (x: number, y: number, msg: string, size: number, color = '#ffffff', origin = 0.5) =>
-      s.add
-        .text(x, y, msg, { fontFamily: FONT, fontSize: `${size}px`, fontStyle: '700', color, stroke: config.palette.outline, strokeThickness: Math.max(6, size / 6), resolution: this.textRes })
-        .setOrigin(origin, 0.5);
-    const title = text(L.width / 2, 170, won ? strings.stageClear : strings.gameOver, 84, won ? config.palette.gold : config.palette.danger);
-    // rewards: coins for the permanent upgrades
-    const rw = s.add.graphics();
-    rw.lineStyle(3, 0xffffff, 0.5);
-    rw.lineBetween(190, 262, 290, 262);
-    rw.lineBetween(430, 262, 530, 262);
-    rw.fillStyle(0x3ddc84, 1);
-    rw.fillRoundedRect(L.width / 2 - 44, 290, 88, 88, 18);
-    rw.lineStyle(5, hex(config.palette.outline), 1);
-    rw.strokeRoundedRect(L.width / 2 - 44, 290, 88, 88, 18);
-    const coinImg = s.add.image(L.width / 2, 326, 'ic_coin').setScale(0.9);
-    const rewardsLabel = text(L.width / 2, 262, strings.rewards, 22, '#ffffff');
-    const coinText = text(L.width / 2, 366, `x${coins}`, 24, '#ffffff');
-    const panel = s.add.graphics();
-    panel.fillStyle(hex(config.palette.outline), 0.95);
-    panel.fillRoundedRect(70, 410, 580, 520, 28);
-    panel.lineStyle(4, 0xffffff, 0.15);
-    panel.strokeRoundedRect(70, 410, 580, 520, 28);
+    const items: Phaser.GameObjects.GameObject[] = [dim(s)];
+    if (won) {
+      this.glow = sprite(s, 'ui_image_effect_rotate', cx, Y(437), 270 * U * 1.6, 275 * U * 1.6, 0xfffa77);
+      items.push(this.glow, sprite(s, 'ui_image_bagde_wing1', cx, Y(533.8), 536 * U, 449 * U), sprite(s, 'ui_image_bagde_wing2', cx, Y(451.4), 296 * U, 228 * U));
+      items.push(s.add.container(cx, Y(291), [sprite(s, 'ui_title_ribbon01_sky', 0, 0, 690 * U, 143 * U, s.textures.exists('ui_title_ribbon01_sky') ? undefined : 0x1fb8ff), text(s, 0, -11 * U, strings.stageClear, 67, { line: 'blue' })]));
+    } else {
+      this.glow = null;
+      items.push(sprite(s, 'ui_image_badge_skull', cx - 8.6 * U, Y(521.1), 562 * U, 329 * U));
+      items.push(s.add.container(cx, Y(291), [sprite(s, 'ui_title_ribbon04_red', 0, 0, 690 * U, 143 * U, s.textures.exists('ui_title_ribbon04_red') ? undefined : 0xff3b5c), text(s, 0, -11 * U, strings.gameOver, 67, { line: 'red' })]));
+    }
+    items.push(dividerTitle(s, cx, Y(11), strings.rewards, 1, 40));
+    items.push(itemFrame(s, cx, Y(-150), 190 * U, 'white', 'ui_itemicon_money_coin', String(coins), 'ic_coin'));
+
+    // compact run stats (our addition: the pack's result screen has none)
     const names = stats.upgrades.map((key) => {
       const [id, lv] = key.split(':');
       if (id === 'evo') return evolutions.find((e) => e.id === lv)?.name ?? lv;
@@ -73,54 +68,47 @@ export class ResultScreen {
       [strings.statWave, stats.waveReached],
       [strings.statTime, fmtTime(stats.durationSec)],
       [strings.statTurns, String(stats.turns)],
-      [strings.statBalloons, `${stats.balloons.blown} / ${stats.balloons.collected}`],
-      [strings.statPopped, `${stats.balloons.poppedWhileBlowing} / ${stats.balloons.poppedOverinflate}`],
-      [strings.statAir, stats.avgAirAtRelease.toFixed(2)],
-      [strings.statBonus, `${stats.close} / ${stats.perfect}`],
-      [strings.statLocks, `${stats.locksOpened} / ${stats.locksFailed}`],
       [strings.statDamage, String(stats.damageTaken)],
+      [strings.statBalloons, `${stats.balloons.blown} / ${stats.balloons.collected}`],
       [strings.statStars, `${stats.starsCollected.stars} / ${stats.starsCollected.redStars}`],
     ];
     if (!won && stats.causeOfDefeat) rows.push([strings.statCause, stats.causeOfDefeat.toUpperCase()]);
-    const items: Phaser.GameObjects.GameObject[] = [dim, title, rewardsLabel, rw, coinImg, coinText, panel];
+    const top = Y(-300);
+    const rowH = 34;
+    const boxH = rows.length * rowH + 70;
+    const bw = 900 * U;
+    items.push(sprite(s, 'ui_borderframe_round20_white_bg', cx, top + boxH / 2, bw, boxH, 0x343549));
+    items.push(sprite(s, 'ui_borderframe_round20_white_light', cx, top + 12, bw - 11 * U, 12 * U, 0xffffff, 0.12));
     rows.forEach(([k, v], i) => {
-      const y = 444 + i * 40;
-      items.push(text(100, y, k, 22, '#cfc8e6', 0), text(620, y, v, 24, '#ffffff', 1));
+      const y = top + 26 + i * rowH;
+      items.push(text(s, cx - bw / 2 + 26, y, k, 30, { originX: 0, align: 'left', color: '#b8b9d7', line: 'none' }), text(s, cx + bw / 2 - 26, y, v, 32, { originX: 1, align: 'right', font: 'cairo' }));
     });
-    const up = text(L.width / 2, 444 + rows.length * 40 + 14, names.length ? names.join(', ') : strings.statNoUpgrades, 19, config.palette.gold);
-    up.setWordWrapWidth(540).setAlign('center');
-    items.push(up);
-    items.push(this.button(L.width / 2 - 150, 1030, strings.continue, 0xffd23f, () => this.onContinue()));
-    const copy = this.button(L.width / 2 + 150, 1030, strings.copyStats, 0x52c2ff, () => {
-      const json = JSON.stringify(stats, null, 2);
-      navigator.clipboard?.writeText(json).catch(() => {});
-      console.log('[stats]', json);
-      copyLabel.setText(strings.copied);
+    items.push(text(s, cx, top + rows.length * rowH + 40, names.length ? names.join(', ') : strings.statNoUpgrades, 28, { color: config.palette.gold, wrap: bw - 40, line: 'none' }));
+
+    const tap = (fn: () => void) => () => {
+      this.onTap();
+      fn();
+    };
+    const by = Math.max(Y(-644), top + boxH + 70);
+    items.push(button(s, { x: cx - 120, y: by, w: 300 * U, color: 'sky', label: strings.continue, onTap: tap(() => this.onContinue()) }));
+    const copy = button(s, {
+      x: cx + 120,
+      y: by,
+      w: 300 * U,
+      color: 'darkgray',
+      label: strings.copyStats,
+      size: 34,
+      onTap: tap(() => {
+        const json = JSON.stringify(stats, null, 2);
+        navigator.clipboard?.writeText(json).catch(() => {});
+        console.log('[stats]', json);
+        copyLabel.setText(strings.copied);
+      }),
     });
-    const copyLabel = copy.getAt(1) as Phaser.GameObjects.Text;
+    const copyLabel = copy.list.find((o) => o instanceof Phaser.GameObjects.Text) as Phaser.GameObjects.Text;
     items.push(copy);
     this.root.add(items);
     this.root.setVisible(true);
-  }
-
-  private button(x: number, y: number, label: string, color: number, onTap: () => void): Phaser.GameObjects.Container {
-    const s = this.scene;
-    const g = s.add.graphics();
-    g.fillStyle(hex(config.palette.outline), 1);
-    g.fillRoundedRect(-130, -40, 260, 80, 40);
-    g.fillStyle(color, 1);
-    g.fillRoundedRect(-124, -34, 248, 68, 34);
-    g.fillStyle(0xffffff, 0.3);
-    g.fillRoundedRect(-110, -28, 220, 14, 7);
-    const t = s.add
-      .text(0, 2, label, { fontFamily: FONT, fontSize: '30px', fontStyle: '700', color: '#ffffff', stroke: config.palette.outline, strokeThickness: 8, resolution: this.textRes })
-      .setOrigin(0.5);
-    const c = s.add.container(x, y, [g, t]).setSize(260, 80).setInteractive({ useHandCursor: true });
-    pressable(c, () => {
-      this.onTap();
-      onTap();
-    });
-    return c;
   }
 
   update(dt: number): void {
@@ -128,5 +116,6 @@ export class ResultScreen {
     this.t += dt;
     const k = Math.min(1, this.t / 0.4);
     this.root.setAlpha(k).setY((1 - easeOutBack(k)) * 80);
+    (this.glow as Phaser.GameObjects.Components.Transform | null)?.setAngle?.(this.t * 40);
   }
 }

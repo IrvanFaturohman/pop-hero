@@ -1,15 +1,15 @@
-// Balloon visual: gradient body, specular highlight, knot, string, tier glow, danger glow, ammo number.
+// Balloon visual: gradient body, specular highlight, knot, string, tier glow, danger glow, and the
+// bullets inside as balls (no number: one ball = one bullet).
 import Phaser from 'phaser';
 import { FIXED_DT, config, hex } from '../config';
 import { easeOutBack, easeOutElastic, easeOutQuad } from '../juice/ease';
 import { Spring } from '../juice/spring';
-import type { Balloon } from '../logic/balloon';
+import type { Balloon, BalloonType } from '../logic/balloon';
 import { clamp01, lerp } from '../logic/math';
 import { hsv } from './color';
-import { shade } from './color';
+import { powerIconKey } from './gui';
 import { balloonColor, balloonTexKey } from './textures';
 
-const FONT_PX = 110;
 const TRAIL_EVERY = 0.03;
 const STRING_SEGS = 9;
 
@@ -22,10 +22,11 @@ export class BalloonView {
   private hl: Phaser.GameObjects.Image;
   private knot: Phaser.GameObjects.Image;
   private lines: Phaser.GameObjects.Graphics;
-  private text: Phaser.GameObjects.Text;
   private badge: Phaser.GameObjects.Image;
-  /** Fire / ice / bomb / heal emblem on special balloons. */
+  /** Emblem of the power-up the balloon carries (fire / ice / bomb / heal / star). */
   private emblem: Phaser.GameObjects.Image;
+  private power: BalloonType = 'normal';
+  private safeT = 0;
   /** Bullet balls visible inside the balloon (more air = more balls). */
   private balls: Phaser.GameObjects.Image[] = [];
   private ballAge: Float32Array;
@@ -41,12 +42,11 @@ export class BalloonView {
   private flashDur = 0.08;
   private whip = 0;
   private t = 0;
-  private lastTotal = -1;
   private tier = 1;
   private lean = 0;
   private solid = 0;
 
-  constructor(scene: Phaser.Scene, layer: Phaser.GameObjects.Layer, textRes: number) {
+  constructor(scene: Phaser.Scene, layer: Phaser.GameObjects.Layer) {
     for (let i = 0; i < config.juice.trailGhosts; i++) {
       const g = scene.add.image(0, 0, 'balloon_n0').setVisible(false);
       layer.add(g);
@@ -60,45 +60,32 @@ export class BalloonView {
     this.hl = scene.add.image(0, 0, 'balloon_hl').setRotation(-0.55);
     this.knot = scene.add.image(0, 0, 'knot');
     this.lines = scene.add.graphics();
-    this.text = scene.add
-      .text(0, 0, '1', {
-        fontFamily: 'Fredoka, system-ui, sans-serif',
-        fontSize: `${FONT_PX}px`,
-        fontStyle: '700',
-        color: '#ffffff',
-        stroke: config.palette.outline,
-        strokeThickness: 16,
-        resolution: textRes,
-      })
-      .setOrigin(0.5, 0.54);
     this.badge = scene.add.image(0, 0, 'badge_star').setVisible(false);
     this.emblem = scene.add.image(0, 0, 'emb_fire').setVisible(false);
     const nBalls = config.juice.innerBalls;
     for (let i = 0; i < nBalls; i++) this.balls.push(scene.add.image(0, 0, 'ball').setVisible(false));
     this.ballAge = new Float32Array(nBalls);
-    this.c = scene.add.container(0, 0, [this.knot, this.body, this.lighten, ...this.balls, this.hl, this.lines, this.flashDisk, this.emblem, this.text, this.badge]);
+    this.c = scene.add.container(0, 0, [this.knot, this.body, this.lighten, ...this.balls, this.hl, this.lines, this.flashDisk, this.emblem, this.badge]);
     this.c.setVisible(false);
     layer.add(this.c);
   }
 
   bind(b: Balloon): void {
     this.id = b.id;
-    const key = balloonTexKey(b.type, b.tint);
+    // the skin keeps the balloon's own color; a power-up shows as emblem + special ball inside
+    const key = balloonTexKey('normal', b.tint);
     this.body.setTexture(key);
     for (const g of this.ghosts) g.setTexture(key);
-    this.emblem.setVisible(b.type !== 'normal');
-    if (b.type !== 'normal') this.emblem.setTexture(`emb_${b.type}`);
-    const col = balloonColor(b.type, b.tint);
+    this.setPower(b.type);
+    this.safeT = 0;
+    const col = balloonColor('normal', b.tint);
     this.knot.setTint(col);
-    // white number with an outline in a deep shade of the balloon color
-    this.text.setStroke(`#${shade(col, -0.55).toString(16).padStart(6, '0')}`, 16);
     this.squash.snap(0);
     this.punchT = 1;
     this.releaseT = -1;
     this.flashT = 0;
     this.whip = 0;
     this.trailCount = 0;
-    this.lastTotal = -1;
     this.tier = 1;
     this.lean = 0;
     this.solid = 0;
@@ -136,6 +123,25 @@ export class BalloonView {
 
   onGhost(): void {
     this.flashT = this.flashDur = 0.12;
+  }
+
+  /** Flew through a power-up: it pops into the balloon. */
+  onPowerUp(): void {
+    this.flashT = this.flashDur = 0.16;
+    this.squash.kick(2.6);
+    this.punchT = 0;
+  }
+
+  /** A spike glanced off this gathered balloon. */
+  onDeflect(): void {
+    this.flashT = this.flashDur = 0.1;
+    this.squash.kick(-1.2);
+  }
+
+  private setPower(kind: BalloonType): void {
+    this.power = kind;
+    this.emblem.setVisible(kind !== 'normal');
+    if (kind !== 'normal') this.emblem.setTexture(powerIconKey(this.emblem.scene, kind));
   }
 
   /** Freeze-frame before bursting: white flash + slight swell, then hide (real time). */
@@ -224,22 +230,16 @@ export class BalloonView {
     if (this.flashT > 0) this.flashT = Math.max(0, this.flashT - dt);
     this.flashDisk.setDisplaySize(d, d).setAlpha(this.flashT > 0 ? 0.3 + 0.6 * (this.flashT / this.flashDur) : 0);
 
-    // number
-    this.updateBalls(b, r, dt);
-    if (this.emblem.visible) {
-      const es = Math.max(18, r * 0.5);
-      this.emblem.setPosition(0, -r * 0.58).setDisplaySize(es, es).setAngle(Math.sin(this.t * 4) * 8);
-    }
-    const total = b.shown;
-    if (total !== this.lastTotal) {
-      this.text.setText(String(total));
-      this.lastTotal = total;
-    }
+    // bullets inside
+    if (b.type !== this.power) this.setPower(b.type);
     const pa = config.juice.ammoPunch;
     this.punchT += dt;
     const punch = this.punchT < pa.time ? lerp(pa.scale, 1, easeOutQuad(this.punchT / pa.time)) : 1;
-    const ts = (Math.max(r, 24) * 0.92 * punch) / FONT_PX;
-    this.text.setScale(ts / Math.max(0.6, sx / sy), ts);
+    this.updateBalls(b, r, dt, punch);
+    if (this.emblem.visible) {
+      const es = Math.max(30, r * 0.55) * (this.punchT < 0.2 ? lerp(1.6, 1, easeOutQuad(this.punchT / 0.2)) : 1);
+      this.emblem.setPosition(0, -r * 0.58).setDisplaySize(es, es).setAngle(Math.sin(this.t * 4) * 8);
+    }
 
     // badge
     const tier = Math.max(this.tier, b.tier);
@@ -250,6 +250,7 @@ export class BalloonView {
       this.badge.setTint(tier === 2 ? 0xffffff : tier === 3 ? hex(config.palette.gold) : hsv((this.t * 0.6) % 1, 0.6, 1));
     } else this.badge.setVisible(false);
 
+    this.safeT = b.state === 'parked' ? this.safeT + dt : 0;
     this.drawLines(r, b.danger, tier);
     this.updateString(b, x, y, r * sy, dt);
     this.updateTrail(b, x, y, r, dt);
@@ -260,7 +261,7 @@ export class BalloonView {
     g.clear();
     if (tier === 2) {
       g.lineStyle(5, 0xffffff, 0.9);
-      g.strokeCircle(0, 0, r + 4);
+      g.strokeCircle(0, 0, r + 6);
     } else if (tier === 3) {
       g.lineStyle(12, hex(config.palette.gold), 0.3);
       g.strokeCircle(0, 0, r + 7);
@@ -276,8 +277,15 @@ export class BalloonView {
         g.strokePath();
       }
     }
-    g.lineStyle(4, hex(config.palette.outline), 1);
+    // thick dark outline, like the Layer Lab art
+    g.lineStyle(Math.max(4, Math.min(7, r * 0.06)), hex(config.palette.outline), 1);
     g.strokeCircle(0, 0, r);
+    // gathered under the chain = safe: a shield shimmer that flares in when it joins
+    if (this.safeT > 0) {
+      const flare = Math.max(0, 1 - this.safeT / 0.35);
+      g.lineStyle(5 + flare * 8, hex(config.palette.shield), 0.45 + 0.15 * Math.sin(this.t * 5) + flare * 0.4);
+      g.strokeCircle(0, 0, r + 3 + flare * 6);
+    }
     if (danger > 0.01) {
       const red = hex(config.palette.danger);
       g.lineStyle(14, red, danger * 0.35);
@@ -288,14 +296,16 @@ export class BalloonView {
   }
 
   /**
-   * Golden-spiral layout. Ball i takes spiral spot (i * 17) mod n, so even the first few balls are
-   * spread over the whole balloon (not hidden behind the number) and keep their spot as more appear.
+   * Golden-angle spiral sized for a full balloon (ammoMax), so balls fill it evenly and keep their
+   * spot as more appear (bonuses beyond that spread it a bit). Balls are the only ammo readout, so
+   * they stay big; a bullet gained punches them all.
    */
-  private updateBalls(b: Balloon, r: number, dt: number): void {
+  private updateBalls(b: Balloon, r: number, dt: number, punch: number): void {
     const n = this.balls.length;
     const visible = Math.min(n, b.shown);
-    const size = Math.max(8, Math.min(20, r * 0.24));
-    const spread = r * 0.76;
+    const size = Math.max(12, Math.min(40, r * 0.3)) * punch;
+    const spread = r * 0.72;
+    const cap = Math.max(config.balloon.ammoMax, visible);
     for (let i = 0; i < n; i++) {
       const ball = this.balls[i];
       if (i >= visible) {
@@ -306,12 +316,16 @@ export class BalloonView {
       if (this.ballAge[i] < 0) this.ballAge[i] = 0;
       this.ballAge[i] += dt;
       const pop = Math.min(1, this.ballAge[i] / 0.12);
-      const spot = (i * 17) % n;
-      const rr = Math.sqrt((spot + 0.5) / n) * spread;
-      const a = spot * 2.39996;
+      const rr = Math.sqrt((i + 0.5) / cap) * spread;
+      const a = i * 2.39996;
       const jx = Math.sin(this.t * 6 + i * 1.7) * size * 0.12;
       const jy = Math.cos(this.t * 5 + i * 2.3) * size * 0.12;
-      ball.setVisible(true).setPosition(Math.cos(a) * rr + jx, Math.sin(a) * rr + jy).setDisplaySize(size * pop, size * pop);
+      // the power-up's special shot: one big glowing ball in its color
+      const special = this.power !== 'normal' && i === Math.min(1, visible - 1);
+      const s = size * pop * (special ? 1.8 : 1);
+      ball.setVisible(true).setPosition(Math.cos(a) * rr + jx, Math.sin(a) * rr + jy).setDisplaySize(s, s);
+      if (special) ball.setTint(balloonColor(this.power));
+      else ball.clearTint();
     }
   }
 

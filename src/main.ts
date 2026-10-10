@@ -8,6 +8,7 @@ import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
 import { HomeScene } from './scenes/HomeScene';
 import { TitleScene } from './scenes/TitleScene';
+import { patchNineSlice } from './view/ninesliceFix';
 
 const L = config.layout;
 const parent = document.getElementById('game')!;
@@ -16,6 +17,7 @@ const fit = Math.min(parent.clientWidth / L.width, parent.clientHeight / L.heigh
 // Render buffer = on-screen CSS size x DPR (<= 2), quantized to keep things crisp but cheap.
 const renderScale = clamp(Math.round(fit * dpr * 4) / 4, 0.75, 2);
 
+patchNineSlice();
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent,
@@ -30,3 +32,6 @@ const game = new Phaser.Game({
   scene: [BootScene, TitleScene, HomeScene, GameScene],
 });
 game.registry.set('renderScale', renderScale);
+
+// dev only: lets scripts/ and debug probes reach the running game
+if (import.meta.env.DEV) (window as unknown as { __game: Phaser.Game }).__game = game;

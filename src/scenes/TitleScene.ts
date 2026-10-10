@@ -9,8 +9,9 @@ import { TAU } from '../logic/math';
 import { strings } from '../strings';
 import { ArenaView } from '../view/arenaView';
 import { RoomView } from '../view/roomView';
+import { Rig } from '../view/rig';
+import { fontFamily, fontWeight } from '../view/gui';
 
-const FONT = 'Fredoka, system-ui, sans-serif';
 const HOLD_TIME = 0.45;
 
 export class TitleScene extends Phaser.Scene {
@@ -22,6 +23,8 @@ export class TitleScene extends Phaser.Scene {
   private logo!: Phaser.GameObjects.Text;
   private prompt!: Phaser.GameObjects.Text;
   private ring!: Phaser.GameObjects.Graphics;
+  /** Layer Lab hero and a goblin facing off on the road (when the art is loaded). */
+  private cast: Rig[] = [];
 
   constructor() {
     super('Title');
@@ -44,8 +47,8 @@ export class TitleScene extends Phaser.Scene {
       [190, 930, 0, 70],
       [370, 1010, 2, 105],
       [545, 900, 3, 80],
-      [270, 1150, 1, 55],
-      [480, 1150, 4, 62],
+      [270, 1120, 1, 55],
+      [480, 1120, 4, 62],
     ];
     for (const [x, y, tint, r] of spots) {
       const img = this.add.image(x, y, `balloon_n${tint}`).setDisplaySize(r * 2, r * 2);
@@ -54,12 +57,19 @@ export class TitleScene extends Phaser.Scene {
     }
     const text = (y: number, msg: string, size: number, color: string, stroke: number) =>
       this.add
-        .text(L.width / 2, y, msg, { fontFamily: FONT, fontSize: `${size}px`, fontStyle: '700', color, stroke: config.palette.outline, strokeThickness: stroke, resolution: rs })
+        .text(L.width / 2, y, msg, { fontFamily: fontFamily('sen'), fontSize: `${size}px`, fontStyle: fontWeight(), color, stroke: config.palette.outline, strokeThickness: stroke, resolution: rs })
         .setOrigin(0.5);
     this.logo = text(300, strings.title, 112, '#ffffff', 20);
     this.prompt = text(700, strings.holdToPlay, 46, config.palette.gold, 12);
     this.ring = this.add.graphics();
     fx.add([this.logo, this.prompt, this.ring]);
+    this.cast = [];
+    const hero = Rig.create(this, 'hero');
+    const goblin = Rig.create(this, 'brute');
+    if (hero && goblin) {
+      this.cast = [hero.face(1).setPosition(150, L.groundY + 4), goblin.face(-1).setPosition(560, L.groundY + 4)];
+      bg.add(this.cast.map((r) => r.c));
+    }
 
     this.input.on('pointerdown', () => {
       synth.unlock();
@@ -82,6 +92,7 @@ export class TitleScene extends Phaser.Scene {
     const L = config.layout;
     this.logo.setScale(easeOutBack(Math.min(1, this.t / 0.6), 2)).setAngle(Math.sin(this.t * 1.5) * 2);
     this.prompt.setScale(1 + Math.sin(this.t * 5) * 0.05).setAlpha(this.t > 0.5 ? 1 : 0);
+    this.cast.forEach((r, i) => r.pose({ bob: Math.sin(this.t * 7 + i) * 1.5, nod: Math.sin(this.t * 7 + i - 0.6), swing: i === 1 ? Math.sin(this.t * 2) * 10 : 0 }));
     for (const b of this.balloons) {
       b.img.setPosition(b.x + Math.sin(this.t * 1.1 + b.ph) * 8, b.y + Math.sin(this.t * 1.6 + b.ph) * 12).setAngle(Math.sin(this.t * 1.3 + b.ph) * 4);
     }

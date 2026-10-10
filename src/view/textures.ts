@@ -40,23 +40,20 @@ function makeBalloon(scene: Phaser.Scene, type: BalloonType, tint = 0): void {
   const col = balloonColor(type, tint);
   const s = BALLOON_TEX;
   canvasTex(scene, balloonTexKey(type, tint), s, s, (c) => {
+    // flat two-tone like the Layer Lab art: base color, a darker lower crescent (the outline is
+    // drawn by the balloon view)
     const r = s / 2 - 2;
-    const g = c.createRadialGradient(s * 0.36, s * 0.3, s * 0.02, s * 0.5, s * 0.5, r);
-    g.addColorStop(0, css(shade(col, 0.55)));
-    g.addColorStop(0.35, css(shade(col, 0.12)));
-    g.addColorStop(0.8, css(col));
-    g.addColorStop(1, css(shade(col, -0.28)));
-    c.fillStyle = g;
+    c.fillStyle = css(col);
     c.beginPath();
     c.arc(s / 2, s / 2, r, 0, Math.PI * 2);
     c.fill();
-    // soft rim light bottom-right
-    const rim = c.createRadialGradient(s * 0.62, s * 0.66, r * 0.6, s * 0.5, s * 0.5, r);
-    rim.addColorStop(0, 'rgba(255,255,255,0)');
-    rim.addColorStop(0.85, 'rgba(255,255,255,0)');
-    rim.addColorStop(1, 'rgba(255,255,255,0.18)');
-    c.fillStyle = rim;
+    c.save();
+    c.clip();
+    c.fillStyle = css(shade(col, -0.2));
+    c.beginPath();
+    c.ellipse(s / 2 + r * 0.12, s / 2 + r * 0.95, r * 1.25, r * 0.8, 0, 0, Math.PI * 2);
     c.fill();
+    c.restore();
   });
 }
 
@@ -68,11 +65,8 @@ function makeFx(scene: Phaser.Scene): void {
     c.fill();
   });
   canvasTex(scene, 'balloon_hl', 128, 72, (c) => {
-    const g = c.createRadialGradient(64, 36, 2, 64, 36, 60);
-    g.addColorStop(0, 'rgba(255,255,255,0.95)');
-    g.addColorStop(0.45, 'rgba(255,255,255,0.55)');
-    g.addColorStop(1, 'rgba(255,255,255,0)');
-    c.fillStyle = g;
+    // flat highlight blob (Layer Lab style), no gradient
+    c.fillStyle = 'rgba(255,255,255,0.85)';
     c.save();
     c.translate(64, 36);
     c.scale(1, 0.55);

@@ -5,3 +5,8 @@ references/*.mov
 references/*.mp4
 screenshots
 .DS_Store
+.claude/*.lock
+.claude/.claudepluginhub-lock.json
+.claude/settings.local.json
+# Layer Lab art copied from the Unity project (paid asset: keep the raw files out of the public repo)
+public/assets/layerlab

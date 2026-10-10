@@ -86,6 +86,22 @@ export const sfx = {
     synth.tone(o, { type: 'sine', f0: 3136, dur: 0.3, at: 0.1, peak: 0.4 });
   },
 
+  power_up(): void {
+    const o = synth.allow('power_up', 2, 0.12) && synth.bus('power_up');
+    if (!o) return;
+    synth.tone(o, { type: 'triangle', f0: C6 * semis(-5), dur: 0.1, peak: 0.8 });
+    synth.tone(o, { type: 'triangle', f0: C6, dur: 0.12, at: 0.06, peak: 0.8 });
+    synth.tone(o, { type: 'sine', f0: G6 * 2, dur: 0.2, at: 0.12, peak: 0.4 });
+  },
+
+  /** A spike glances off a gathered balloon: a short metallic tink. */
+  deflect(): void {
+    const o = synth.allow('deflect', 2, 0.08) && synth.bus('deflect');
+    if (!o) return;
+    synth.tone(o, { type: 'sine', f0: 2600 * vary(), dur: 0.08, attack: 0.001, peak: 0.6 });
+    synth.noise(o, { dur: 0.03, filter: 'highpass', f0: 3000, q: 0.7, peak: 0.4 });
+  },
+
   plop(): void {
     const o = synth.allow('plop', 2, 0.07) && synth.bus('plop');
     if (!o) return;

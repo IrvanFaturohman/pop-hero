@@ -1,18 +1,17 @@
-// Top HUD (reference layout): red / yellow star counters, the chapter's wave nodes (green check =
-// cleared, white ring = current, orange = elite wave, red skull = boss), the owned abilities with
-// their level gems, and the low-HP red pulse. The hero's HP bar lives under the hero.
+// Top HUD in the pack's Play_UI_Idle layout: resource pills top-left (red / yellow stars), the
+// wave slider top-center (current wave badge, progress fill, next wave badge: orange = elite, red =
+// boss, "WAVE n/10"), the owned abilities as small skill frames with level gems, and the low-HP
+// red pulse. The hero's HP bar lives under the hero.
 import Phaser from 'phaser';
 import { MAX_LEVEL, abilityDef, evolutions, type AbilitySet, type Wallet } from '../abilities';
 import { config, hex } from '../config';
 import { TAU } from '../logic/math';
-import { drawCardIcon } from './cardIcons';
+import { strings } from '../strings';
+import { ResourcePill, U, gems, skillFrame, sprite, text } from './gui';
 
-const FONT = 'Fredoka, system-ui, sans-serif';
-const STARS_Y = 40;
-const RED_X = 280;
-const YELLOW_X = 420;
-const NODES = { y: 96, dx: 38 };
-const ICONS = { x: 42, y: 150, dx: 52, size: 42 };
+const PILL = { x: 38, y: 40, w: 168 * U, gap: 14 };
+const WAVE = { y: 204 * U, w: 434 * U, h: 65 * U };
+const ICONS = { x: 40, y: 150, dx: 58, size: 50 };
 
 export interface WaveNodes {
   index: number;
@@ -24,41 +23,52 @@ export interface WaveNodes {
 }
 
 export class TopHud {
-  private g: Phaser.GameObjects.Graphics;
+  private red: ResourcePill;
+  private yellow: ResourcePill;
+  private wave: Phaser.GameObjects.Container;
+  private waveFill: Phaser.GameObjects.GameObject | null = null;
+  private waveText: Phaser.GameObjects.Text;
+  private leftNum: Phaser.GameObjects.Text;
+  private rightNum: Phaser.GameObjects.Text;
+  private rightBadge: Phaser.GameObjects.GameObject & { setTint?(c: number): unknown };
   private icons: Phaser.GameObjects.Container;
-  private redText: Phaser.GameObjects.Text;
-  private yellowText: Phaser.GameObjects.Text;
-  private redIcon: Phaser.GameObjects.Image;
-  private yellowIcon: Phaser.GameObjects.Image;
   private vignette: Phaser.GameObjects.Image;
   private t = 0;
-  private shown = { red: -1, yellow: -1, icons: '' };
+  private shown = { red: -1, yellow: -1, icons: '', wave: '' };
   private punch = { red: 1, yellow: 1 };
+  private iconScale = { red: 1, yellow: 1 };
 
   constructor(
     private scene: Phaser.Scene,
     layer: Phaser.GameObjects.Layer,
-    textRes: number,
+    _textRes: number,
   ) {
     const L = config.layout;
     this.vignette = scene.add.image(L.width / 2, L.height / 2, 'vignette').setDisplaySize(L.width + 80, L.height + 80);
     this.vignette.setTint(hex(config.palette.danger)).setAlpha(0);
-    this.g = scene.add.graphics();
-    const txt = (x: number) =>
-      scene.add
-        .text(x, STARS_Y + 2, '0', { fontFamily: FONT, fontSize: '28px', fontStyle: '700', color: '#ffffff', stroke: config.palette.outline, strokeThickness: 7, resolution: textRes })
-        .setOrigin(0, 0.5);
-    this.redIcon = scene.add.image(RED_X, STARS_Y, 'ic_redstar').setScale(0.6);
-    this.yellowIcon = scene.add.image(YELLOW_X, STARS_Y, 'ic_star').setScale(0.6);
-    this.redText = txt(RED_X + 28);
-    this.yellowText = txt(YELLOW_X + 28);
+    this.red = new ResourcePill(scene, PILL.x + PILL.w / 2, PILL.y, PILL.w, 'ui_itemicon_star_red', 'ic_redstar');
+    this.yellow = new ResourcePill(scene, PILL.x + PILL.w * 1.5 + PILL.gap, PILL.y, PILL.w, 'ui_itemicon_star_gold', 'ic_star');
+    this.iconScale.red = this.red.iconImg.scale;
+    this.iconScale.yellow = this.yellow.iconImg.scale;
+
+    // wave slider (Slider_Wave): badges on both ends, fill in between, caption under it
+    const bw = 98 * U;
+    const barW = WAVE.w - bw * 2 + 30 * U;
+    this.wave = scene.add.container(L.width / 2, WAVE.y, [sprite(scene, 'ui_slider_wave_bg', 0, 0, barW, WAVE.h - 34 * U, 0x556579)]);
+    const lb = sprite(scene, 'ui_slider_wave_badge1', -WAVE.w / 2 + bw / 2, 0, bw, 60 * U, 0x1956ce);
+    this.rightBadge = sprite(scene, 'ui_slider_wave_badge1', WAVE.w / 2 - bw / 2, 0, bw, 60 * U, 0x000000);
+    this.leftNum = text(scene, -WAVE.w / 2 + bw / 2 - 2, -1, '1', 34, { font: 'cairo' });
+    this.rightNum = text(scene, WAVE.w / 2 - bw / 2 - 2, -1, '2', 34, { font: 'cairo' });
+    this.waveText = text(scene, 0, 37 * U, '', 31, { font: 'cairo', line: 'none', color: '#000000' });
+    this.wave.add([lb, sprite(scene, 'ui_slider_wave_badge2', -WAVE.w / 2 + bw / 2, 0, bw - 7 * U, 60 * U - 9 * U, 0xffffff, 0.31), this.rightBadge, this.leftNum, this.rightNum, this.waveText]);
     this.icons = scene.add.container(0, 0);
-    layer.add([this.vignette, this.g, this.redIcon, this.yellowIcon, this.redText, this.yellowText, this.icons]);
+    layer.add([this.vignette, this.red.c, this.yellow.c, this.wave, this.icons]);
   }
 
   /** Where a collected star flies to. */
   starTarget(red: boolean): { x: number; y: number } {
-    return { x: red ? RED_X : YELLOW_X, y: STARS_Y };
+    const p = red ? this.red : this.yellow;
+    return { x: p.c.x + p.iconImg.x, y: PILL.y };
   }
 
   /** Bump a counter when a star lands. */
@@ -69,19 +79,13 @@ export class TopHud {
 
   update(dt: number, hpFrac: number, nodes: WaveNodes, wallet: Wallet, set: AbilitySet): void {
     this.t += dt;
-    if (wallet.redStars !== this.shown.red) {
-      this.redText.setText(String(wallet.redStars));
-      this.shown.red = wallet.redStars;
-    }
-    if (wallet.stars !== this.shown.yellow) {
-      this.yellowText.setText(String(wallet.stars));
-      this.shown.yellow = wallet.stars;
-    }
+    this.red.set(String(wallet.redStars));
+    this.yellow.set(String(wallet.stars));
     this.punch.red += (1 - this.punch.red) * Math.min(1, dt * 10);
     this.punch.yellow += (1 - this.punch.yellow) * Math.min(1, dt * 10);
-    this.redIcon.setScale(0.6 * this.punch.red);
-    this.yellowIcon.setScale(0.6 * this.punch.yellow);
-    this.drawNodes(nodes);
+    this.red.iconImg.setScale(this.iconScale.red * this.punch.red);
+    this.yellow.iconImg.setScale(this.iconScale.yellow * this.punch.yellow);
+    this.drawWave(nodes);
     this.drawIcons(set);
 
     // low HP: red pulsing vignette
@@ -91,78 +95,43 @@ export class TopHud {
     this.vignette.setAlpha(k > 0 ? (0.25 + 0.35 * pulse) * (0.5 + 0.5 * k) : 0);
   }
 
-  private drawNodes(n: WaveNodes): void {
-    const g = this.g;
-    const ol = hex(config.palette.outline);
-    const x0 = config.layout.width / 2 - ((n.count - 1) * NODES.dx) / 2;
-    const y = NODES.y;
-    g.clear();
-    g.fillStyle(0x000000, 0.3);
-    g.fillRoundedRect(x0 - 26, y - 22, (n.count - 1) * NODES.dx + 52, 44, 22);
-    g.fillStyle(ol, 1);
-    g.fillRect(x0, y - 4, (n.count - 1) * NODES.dx, 8);
-    const doneUpTo = n.cleared ? n.index : n.index - 1;
-    g.fillStyle(0x3ddc84, 1);
-    if (doneUpTo >= 0) g.fillRect(x0, y - 2, Math.min(n.count - 1, doneUpTo + 0.5) * NODES.dx, 4);
-    for (let i = 0; i < n.count; i++) {
-      const x = x0 + i * NODES.dx;
-      const done = i <= doneUpTo;
-      const special = i === n.boss ? 'boss' : n.elite.includes(i) ? 'elite' : '';
-      const r = special ? 15 : 11;
-      const fill = done ? 0x3ddc84 : special === 'boss' ? 0xff3b3b : special === 'elite' ? 0xff9f1c : 0x3a2f5c;
-      g.fillStyle(ol, 1);
-      g.fillCircle(x, y, r + 3);
-      g.fillStyle(fill, 1);
-      g.fillCircle(x, y, r);
-      if (done) {
-        g.lineStyle(4, 0xffffff, 1);
-        g.beginPath();
-        g.moveTo(x - 6, y);
-        g.lineTo(x - 2, y + 5);
-        g.lineTo(x + 6, y - 5);
-        g.strokePath();
-      } else if (special) {
-        // tiny skull
-        g.fillStyle(0xffffff, 1);
-        g.fillCircle(x, y - 2, 7);
-        g.fillRect(x - 4, y + 2, 8, 5);
-        g.fillStyle(fill, 1);
-        g.fillCircle(x - 3, y - 2, 2.2);
-        g.fillCircle(x + 3, y - 2, 2.2);
-      }
-      if (i === n.index && !n.cleared) {
-        const p = 0.5 + 0.5 * Math.sin(this.t * TAU);
-        g.lineStyle(3, 0xffffff, 0.6 + 0.4 * p);
-        g.strokeCircle(x, y, r + 6 + p * 2);
-      }
+  private drawWave(n: WaveNodes): void {
+    const key = `${n.index},${n.cleared}`;
+    if (key === this.shown.wave) return;
+    this.shown.wave = key;
+    const cur = n.index + 1;
+    const next = Math.min(n.count, cur + 1);
+    this.leftNum.setText(String(cur));
+    this.rightNum.setText(String(next));
+    // the next badge warns about the elite / boss wave
+    const nextIdx = next - 1;
+    const tint = nextIdx === n.boss ? 0xe8243b : n.elite.includes(nextIdx) ? 0xff8a1f : 0x000000;
+    this.rightBadge.setTint?.(tint);
+    this.waveText.setText(strings.wave(cur, n.count));
+    const bw = 98 * U;
+    const barW = WAVE.w - bw * 2 + 30 * U;
+    const fh = WAVE.h - 34 * U - 9 * U;
+    const frac = (n.index + (n.cleared ? 1 : 0)) / Math.max(1, n.count);
+    this.waveFill?.destroy();
+    this.waveFill = null;
+    if (frac > 0) {
+      const w = Math.max(fh, (barW - 4) * frac);
+      this.waveFill = sprite(this.scene, 'ui_slider_wave_fill', -barW / 2 + 2 + w / 2, 0, w, fh, 0x31b9ff);
+      this.wave.addAt(this.waveFill, 1);
     }
   }
 
-  /** Owned abilities: a tile with the card icon and level gems (red tile once evolved). */
+  /** Owned abilities: a small skill frame with the art and level gems (red frame once evolved). */
   private drawIcons(set: AbilitySet): void {
     const owned = set.owned();
     const key = owned.map((id) => `${id}${set.level(id)}`).join(',') + [...set.evos].join(',');
     if (key === this.shown.icons) return;
     this.shown.icons = key;
     this.icons.removeAll(true);
-    const ol = hex(config.palette.outline);
-    const S = ICONS.size;
     owned.forEach((id, i) => {
       const evolved = evolutions.some((e) => e.from === id && set.has(e.id));
       const x = ICONS.x + i * ICONS.dx;
-      const g = this.scene.add.graphics();
-      g.fillStyle(ol, 1);
-      g.fillRoundedRect(x - S / 2 - 3, ICONS.y - S / 2 - 3, S + 6, S + 6, 10);
-      g.fillStyle(evolved ? 0xe2445a : 0x3f7fe0, 1);
-      g.fillRoundedRect(x - S / 2, ICONS.y - S / 2, S, S, 8);
-      const lv = set.level(id);
-      for (let k = 1; k <= MAX_LEVEL; k++) {
-        g.fillStyle(k <= lv ? 0xffd23f : 0x9aa3c7, 1);
-        g.fillCircle(x + (k - 2) * 11, ICONS.y + S / 2 + 6, 4);
-      }
-      const icon = this.scene.add.graphics().setPosition(x, ICONS.y).setScale(0.36);
-      drawCardIcon(icon, abilityDef(id).icon);
-      this.icons.add([g, icon]);
+      this.icons.add([skillFrame(this.scene, x, ICONS.y, ICONS.size, evolved ? 'red' : 'blue', abilityDef(id).icon), gems(this.scene, x, ICONS.y + ICONS.size / 2 + 6, set.level(id), MAX_LEVEL, 0.55)]);
     });
   }
 }

@@ -24,15 +24,12 @@ function makeSpikes(scene: Phaser.Scene): void {
   const m = s / 2;
   canvasTex(scene, 'spike_ball', s, s, (c) => {
     c.lineJoin = 'round';
+    // flat Layer Lab look: dark outline, solid red, darker core, one highlight
     star(c, m, m, 8, 25, 13);
-    c.lineWidth = 5;
-    c.strokeStyle = '#ffffff';
+    c.lineWidth = 6;
+    c.strokeStyle = p.outline;
     c.stroke();
-    const g = c.createRadialGradient(m - 5, m - 6, 2, m, m, 25);
-    g.addColorStop(0, p.spikeTip);
-    g.addColorStop(0.55, p.spikeBody);
-    g.addColorStop(1, p.spikeCore);
-    c.fillStyle = g;
+    c.fillStyle = p.spikeBody;
     c.fill();
     c.fillStyle = p.spikeCore;
     c.beginPath();
@@ -46,8 +43,8 @@ function makeSpikes(scene: Phaser.Scene): void {
   canvasTex(scene, 'spike_hub', 60, 60, (c) => {
     c.lineJoin = 'round';
     star(c, 30, 30, 8, 26, 19);
-    c.lineWidth = 5;
-    c.strokeStyle = '#fff';
+    c.lineWidth = 6;
+    c.strokeStyle = p.outline;
     c.stroke();
     c.fillStyle = p.spikeBody;
     c.fill();

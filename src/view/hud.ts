@@ -2,8 +2,10 @@
 import Phaser from 'phaser';
 import { config, hex } from '../config';
 import { easeOutBack } from '../juice/ease';
+import { roundButton } from './gui';
 
-export const PAUSE_BTN = { x: 664, y: 58, r: 34 };
+/** Top-right like the pack's in-game Button_Menu (anchored 100 / 90 canvas units from the corner). */
+export const PAUSE_BTN = { x: 720 - 100 * (720 / 1048), y: 90 * (720 / 1048), r: 42 };
 
 /**
  * Button feedback: press = 0.92, release = small overshoot, then `onTap`. Only fires when the
@@ -30,6 +32,10 @@ export class Hud {
   onPause: () => void = () => {};
 
   constructor(scene: Phaser.Scene, layer: Phaser.GameObjects.Layer) {
+    if (scene.textures.exists('ui_button_round03_dark')) {
+      layer.add(roundButton(scene, PAUSE_BTN.x, PAUSE_BTN.y, 'ui_icon_pause', () => this.onPause()));
+      return;
+    }
     const ol = hex(config.palette.outline);
     const g = scene.add.graphics();
     g.fillStyle(0x000000, 0.25);

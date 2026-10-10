@@ -5,8 +5,8 @@ import Phaser from 'phaser';
 import { config, hex } from '../config';
 import { easeInQuad, easeOutBack, easeOutQuad } from '../juice/ease';
 import { lerp } from '../logic/math';
+import { fontFamily, fontWeight } from './gui';
 
-const FONT = 'Fredoka, system-ui, sans-serif';
 const BODY_W = 84;
 const BODY_H = 62;
 
@@ -46,13 +46,13 @@ export class LockView {
     body.fillStyle(0xffffff, 0.4);
     body.fillRoundedRect(-BODY_W / 2 + 6, -BODY_H / 2 + 5, BODY_W - 12, 8, 4);
     this.text = scene.add
-      .text(0, 4, '0', { fontFamily: FONT, fontSize: '36px', fontStyle: '700', color: '#ffffff', stroke: config.palette.outline, strokeThickness: 8, resolution: textRes })
+      .text(0, 4, '0', { fontFamily: fontFamily('cairo'), fontSize: '36px', fontStyle: fontWeight(), color: '#ffffff', stroke: config.palette.outline, strokeThickness: 8, resolution: textRes })
       .setOrigin(0.5);
     this.c = scene.add.container(config.layout.width / 2, config.layout.ropeY + BODY_H / 2 + 6, [this.shackle, body, this.text]);
     this.c.setVisible(false);
     layer.add(this.c);
-    // this turn's balloons ("moves") or, with no limit, the next balloon types, right of the lock
-    const n = Math.max(config.turns.balloonsPerTurn, config.spawn.queueSize);
+    // this turn's balloons ("moves") when the debug balloon limit is on, right of the lock
+    const n = config.turns.balloonsPerTurn;
     for (let i = 0; i < n; i++) {
       const img = scene.add.image(0, 0, 'balloon_n0').setDisplaySize(30, 30).setVisible(false);
       layer.add(img);
@@ -97,7 +97,7 @@ export class LockView {
   }
 
   /** (ax, ay) = chain midpoint the lock hangs from; strain 0..1 makes it shake before the snap. */
-  update(dt: number, lockLeft: number, movesLeft: number, active: boolean, ax: number, ay: number, strain: number, queue: readonly string[]): void {
+  update(dt: number, lockLeft: number, movesLeft: number, active: boolean, ax: number, ay: number, strain: number): void {
     this.t += dt;
     // number counts down toward what is still needed
     if (this.shown > lockLeft) this.shown = Math.max(lockLeft, this.shown - Math.max(1, (this.shown - lockLeft) * dt * 10));
@@ -141,17 +141,14 @@ export class LockView {
     }
     this.c.setY(y).setScale(scale).setAngle(angle);
 
-    // balloon icons: full = still to blow, faded = used (no limit: just the next balloon types)
+    // balloon icons: full = still to blow, faded = used (hidden with no limit)
     const total = this.icons.length;
-    const unlimited = movesLeft < 0;
     for (let i = 0; i < total; i++) {
       const img = this.icons[i];
-      img.setVisible(active && this.c.visible);
+      img.setVisible(active && this.c.visible && movesLeft >= 0);
       if (!img.visible) continue;
-      const left = unlimited || i >= total - movesLeft;
-      const qi = unlimited ? i : i - (total - movesLeft);
-      const type = left ? queue[qi] ?? 'normal' : 'normal';
-      img.setTexture(type === 'normal' ? `balloon_n${(i * 2) % config.palette.balloonColors.length}` : `balloon_${type}`);
+      const left = i >= total - movesLeft;
+      img.setTexture(`balloon_n${(i * 2) % config.palette.balloonColors.length}`);
       img.setPosition(L.roomRight - 30 - (total - 1 - i) * 34, L.roomBottom - 70 + Math.sin(this.t * 3 + i) * 2);
       img.setAlpha(left ? 1 : 0.25).setDisplaySize(left ? 30 : 24, left ? 30 : 24);
     }

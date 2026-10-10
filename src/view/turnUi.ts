@@ -1,17 +1,17 @@
 // Turn indicator: a pill on the arena/room border ("YOUR TURN", "FIRE!", "ENEMY TURN") and a dark
 // overlay on the balloon room while it is not your turn.
 import Phaser from 'phaser';
-import { config, hex } from '../config';
+import { config } from '../config';
 import { easeOutBack } from '../juice/ease';
 import type { TurnPhase } from '../logic/turns';
 import { strings } from '../strings';
+import { sprite, text } from './gui';
 
-const FONT = 'Fredoka, system-ui, sans-serif';
 
 export class TurnUi {
   private dim: Phaser.GameObjects.Rectangle;
   private pill: Phaser.GameObjects.Container;
-  private bg: Phaser.GameObjects.Graphics;
+  private bg: Phaser.GameObjects.GameObject;
   private label: Phaser.GameObjects.Text;
   private dimTarget = 0;
   private popT = 1;
@@ -20,18 +20,17 @@ export class TurnUi {
   private phase: TurnPhase = 'intro';
   private left = -1;
 
-  constructor(scene: Phaser.Scene, overlay: Phaser.GameObjects.Layer, ui: Phaser.GameObjects.Layer, textRes: number) {
+  constructor(scene: Phaser.Scene, overlay: Phaser.GameObjects.Layer, _ui: Phaser.GameObjects.Layer, _textRes: number) {
     const L = config.layout;
     const w = L.roomRight - L.roomLeft;
     const h = L.roomBottom - L.roomOpenTop + 4;
     this.dim = scene.add.rectangle(L.roomLeft + w / 2, L.roomOpenTop - 4 + h / 2, w, h, 0x1a1210, 1).setAlpha(0);
     overlay.add(this.dim);
     this.bg = scene.add.graphics();
-    this.label = scene.add
-      .text(0, 0, '', { fontFamily: FONT, fontSize: '30px', fontStyle: '700', color: '#ffffff', stroke: config.palette.outline, strokeThickness: 8, resolution: textRes })
-      .setOrigin(0.5);
+    this.label = text(scene, 0, -1, '', 40);
+    // world layer: the pill sits on the room border, which moves with the camera pan
     this.pill = scene.add.container(L.width / 2, L.roomTop + 4, [this.bg, this.label]).setVisible(false);
-    ui.add(this.pill);
+    overlay.add(this.pill);
   }
 
   setPhase(phase: TurnPhase, left = 0): void {
@@ -61,11 +60,11 @@ export class TurnUi {
     this.label.setText(msg).setColor(color);
     // your turn: on the room border; battle phases: under the top HUD and boss bar (camera zooms
     // into the battle)
-    this.pill.setY(phase === 'blow' ? config.layout.roomBottom - 8 : 262);
-    const pw = this.label.width + 36;
-    this.bg.clear();
-    this.bg.fillStyle(hex(config.palette.outline), 0.92);
-    this.bg.fillRoundedRect(-pw / 2, -24, pw, 48, 24);
+    this.pill.setY(phase === 'blow' ? config.layout.roomBottom - 8 : 310);
+    const pw = this.label.width + 48;
+    this.bg.destroy();
+    this.bg = sprite(this.pill.scene, 'ui_resourcebar_single_bg', 0, 0, pw, 54, 0x1e1d26);
+    this.pill.addAt(this.bg, 0);
     this.pill.setVisible(true);
     this.popT = 0;
   }

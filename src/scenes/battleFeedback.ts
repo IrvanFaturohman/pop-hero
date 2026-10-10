@@ -132,33 +132,6 @@ export class BattleFeedback {
         d.hero.onTokenLand();
         sfx.ammo_collect(ev.index);
         break;
-      case 'cashIn': {
-        // leftover bullets pour from the counter into the HP bar
-        const L = config.layout;
-        const sx = d.hero.counterX();
-        const sy = d.hero.counterY();
-        const n = Math.min(3, ev.amount);
-        for (let i = 0; i < n; i++) {
-          // high arc (~80 px) that lands on the bar right above the counter
-          const life = 0.42 + i * 0.05;
-          const g = 2400;
-          const tx = L.heroX + (Math.random() - 0.5) * 60;
-          const ty = L.heroBarY;
-          d.particles.emit('ball', sx, sy, { vx: (tx - sx) / life, vy: (ty - sy) / life - 0.5 * g * life, gravity: g, life, scale0: 0.9, scale1: 0.5, tint: i === 0 ? 0xffffff : 0x3ddc84, delay: i * 0.03 });
-        }
-        d.hero.onTokenLand();
-        sfx.ammo_collect(ev.index);
-        break;
-      }
-      case 'cashInDone': {
-        const L = config.layout;
-        if (ev.hp > 0) {
-          d.floating.show('bonus', L.heroX, L.heroBarY - 150, strings.leftoverHp(ev.hp), '#3DDC84', 1);
-          d.particles.burst('p_star', L.heroX, L.heroBarY, 14, 90, 260, { life: 0.6, scale0: 0.9, scale1: 0.1, gravity: -200, tint: 0x3ddc84 });
-          sfxBattle.heal();
-        } else if (ev.bullets > 0) d.floating.show('bonus', L.heroX, L.heroBarY - 150, strings.fullHp, '#ffffff', 0.8);
-        break;
-      }
       default:
         break;
     }

@@ -27,6 +27,7 @@ import { WaveRunner } from '../logic/waves';
 import { loadMeta, loadSettings, markTutorialDone, saveMeta, tutorialDone } from '../storage';
 import { ArenaView } from '../view/arenaView';
 import { BalloonLayer } from '../view/balloonLayer';
+import { PowerUpView } from '../view/powerUpView';
 import { ClawView } from '../view/clawView';
 import { EnemyView } from '../view/enemyView';
 import { HeroView } from '../view/heroView';
@@ -70,6 +71,7 @@ export class GameScene extends Phaser.Scene {
   private roomView!: RoomView;
   private spikeView!: SpikeLayerView;
   private balloons!: BalloonLayer;
+  private powerUpView!: PowerUpView;
   private hero!: HeroView;
   private enemyView!: EnemyView;
   private overlay!: HitboxOverlay;
@@ -123,7 +125,8 @@ export class GameScene extends Phaser.Scene {
     this.arena = new ArenaView(this, L.bg);
     this.roomView = new RoomView(this, L.bg, L.overlay);
     this.enemyView = new EnemyView(this, L.enemies);
-    this.balloons = new BalloonLayer(this, L.balloons, this.rs);
+    this.powerUpView = new PowerUpView(this, L.balloons);
+    this.balloons = new BalloonLayer(this, L.balloons);
     this.hero = new HeroView(this, L.hero, this.rs);
     this.spikeView = new SpikeLayerView(this, L.spikes);
     this.clawView = new ClawView(this, L.spikes);
@@ -138,6 +141,7 @@ export class GameScene extends Phaser.Scene {
     this.ui.onResume = () => this.resume();
     this.ui.onRestart = () => this.scene.restart();
     this.ui.onHome = () => this.goHome();
+    this.ui.worldOffsetY = () => this.cams.offsetY;
 
     this.feedback = new Feedback({
       ...fx,
@@ -268,7 +272,6 @@ export class GameScene extends Phaser.Scene {
       locksFailed: this.turns.locksFailed,
       damageTaken: this.battle.damageTaken,
       leftoverPerWave: this.battle.leftoverPerWave,
-      hpFromLeftover: this.battle.hpFromLeftover,
       upgrades: this.abilities.history,
       stars: this.starsCollected,
       coins: this.coinsEarned,
@@ -348,6 +351,7 @@ export class GameScene extends Phaser.Scene {
     const room = this.room;
     const a = room.attached;
     const danger = this.balloons.update(room, alpha, gameDt, realDt);
+    this.powerUpView.update(room.powerUps, alpha, gameDt);
     this.spikeView.update(room.field, alpha, gameDt);
     this.clawView.update(room.claw, alpha, gameDt);
     this.roomView.update(gameDt, danger);
@@ -372,6 +376,7 @@ export class GameScene extends Phaser.Scene {
     this.flash.update(realDt);
     this.shake.update(realDt);
     this.cams.update(realDt, this.shake);
+    if (this.input2) this.input2.worldOffsetY = this.cams.offsetY;
 
     this.overlayList.length = 0;
     if (config.debug.showHitbox) this.overlayList.push(a, ...room.flying);

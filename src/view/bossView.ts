@@ -5,9 +5,9 @@ import { config, hex } from '../config';
 import type { BossBrain } from '../logic/boss';
 import { TAU } from '../logic/math';
 import { strings } from '../strings';
+import { fontFamily, fontWeight } from './gui';
 
-const FONT = 'Fredoka, system-ui, sans-serif';
-const BAR = { x: 360, y: 214, w: 440, h: 22 };
+const BAR = { x: 360, y: 222, w: 440, h: 20 };
 
 export class BossView {
   private bar: Phaser.GameObjects.Graphics;
@@ -22,7 +22,7 @@ export class BossView {
   constructor(scene: Phaser.Scene, ui: Phaser.GameObjects.Layer, world: Phaser.GameObjects.Layer, textRes: number) {
     this.bar = scene.add.graphics().setVisible(false);
     this.name = scene.add
-      .text(BAR.x, BAR.y - 24, '', { fontFamily: FONT, fontSize: '24px', fontStyle: '700', color: '#ffffff', stroke: config.palette.outline, strokeThickness: 7, resolution: textRes })
+      .text(BAR.x, BAR.y - 21, '', { fontFamily: fontFamily('sen'), fontSize: '24px', fontStyle: fontWeight(), color: '#ffffff', stroke: config.palette.outline, strokeThickness: 7, resolution: textRes })
       .setOrigin(0.5)
       .setVisible(false);
     ui.add([this.bar, this.name]);

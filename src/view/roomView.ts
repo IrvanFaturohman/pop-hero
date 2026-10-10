@@ -5,7 +5,7 @@ import { config, hex } from '../config';
 import { clamp01 } from '../logic/math';
 import { shade } from './color';
 
-const MARGIN = 80;
+const MARGIN = 260; // the room camera pans down below the 1280 canvas
 const WALL = 12; // cyan wall thickness
 
 export class RoomView {

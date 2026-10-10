@@ -9,8 +9,8 @@ export class BalloonLayer {
   private byId = new Map<number, BalloonView>();
   private dying: BalloonView[] = [];
 
-  constructor(scene: Phaser.Scene, layer: Phaser.GameObjects.Layer, textRes: number, pool = 6) {
-    for (let i = 0; i < pool; i++) this.views.push(new BalloonView(scene, layer, textRes));
+  constructor(scene: Phaser.Scene, layer: Phaser.GameObjects.Layer, pool = 6) {
+    for (let i = 0; i < pool; i++) this.views.push(new BalloonView(scene, layer));
   }
 
   bind(b: Balloon): BalloonView | null {

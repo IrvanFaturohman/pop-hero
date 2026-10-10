@@ -55,6 +55,8 @@ const ELITE_WAVES = stage1.waves.map((w, i) => (w.boss?.kind === 'ratking' ? i :
 const BOSS_WAVE = stage1.waves.findIndex((w) => w.boss?.kind === 'mole');
 
 export class GameUi {
+  /** World y - screen y of the panned room camera (set by the game scene). */
+  worldOffsetY: () => number = () => 0;
   readonly banner: Banner;
   readonly lock: LockView;
   private topHud: TopHud;
@@ -114,6 +116,8 @@ export class GameUi {
   /** A star from a star balloon arcs up to its HUD counter. */
   flyStar(red: boolean, x: number, y: number): void {
     const to = this.topHud.starTarget(red);
+    // (x, y) is a world point; the star flies on the UI layer, which the room camera pan doesn't move
+    y -= this.worldOffsetY();
     const img = this.scene.add.image(x, y, red ? 'ic_redstar' : 'ic_star').setScale(0.9);
     this.L.ui.add(img);
     const mid = { x: (x + to.x) / 2 + 80, y: Math.min(y, to.y) - 60 };
@@ -188,7 +192,7 @@ export class GameUi {
     const strain = room.lockTarget > 0 ? 1 - room.lockLeft / room.lockTarget : 0;
     this.rope.draw(rope, rope.snapped ? 0 : strain, gameDt);
     const lockActive = ph === 'blow' || ph === 'unlock' || ph === 'failed' || ph === 'burst';
-    this.lock.update(gameDt, room.lockLeft, turns.balloonsLeft, lockActive, rope.x[rope.mid], rope.y[rope.mid], strain, room.queue);
+    this.lock.update(gameDt, room.lockLeft, turns.balloonsLeft, lockActive, rope.x[rope.mid], rope.y[rope.mid], strain);
     this.tutorial.update(gameDt, room, ph === 'blow', this.lock.x, this.lock.y);
     const yourTurn = ph === 'blow' || ph === 'unlock' || ph === 'burst' || ph === 'collect' || ph === 'shoot';
     this.boss.update(realDt, battle.boss, yourTurn);

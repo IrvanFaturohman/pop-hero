@@ -7,7 +7,7 @@ import type { Particles } from '../juice/particles';
 import type { ScreenFlash } from '../juice/flash';
 import type { Shake } from '../juice/shake';
 import type { TimeControl } from '../juice/time';
-import type { Balloon } from '../logic/balloon';
+import type { Balloon, BalloonType } from '../logic/balloon';
 import type { RoomEvent } from '../logic/room';
 import type { SpikeField } from '../logic/spikes';
 import { strings } from '../strings';
@@ -78,7 +78,14 @@ export class Feedback {
         d.bindView(ev.b);
         sfx.plop();
         d.particles.ring(ev.b.x, ev.b.y, 10, 70, 0.22, 0xffffff, 0.7);
-        if (ev.isNew) d.floating.show('small', ev.b.x + 70, ev.b.y - 30, strings.newType, config.palette.gold, 0.8);
+        break;
+      case 'powerUp':
+        this.powerUp(ev.b, ev.kind, ev.x, ev.y, ev.isNew);
+        break;
+      case 'deflect':
+        d.view(ev.b.id)?.onDeflect();
+        d.particles.burst('p_star', ev.x, ev.y, 5, 120, 260, { drag: 6, life: 0.25, scale0: 0.6, scale1: 0.1, alpha1: 0, tint: hex(config.palette.shield), additive: true });
+        sfx.deflect();
         break;
       case 'blowStart':
         sfx.inflate_start();
@@ -193,6 +200,20 @@ export class Feedback {
     sfx.near_miss();
   }
 
+  /** A flying balloon grabbed a power-up: burst at the pickup, then it shows inside the balloon. */
+  private powerUp(b: Balloon, kind: BalloonType, x: number, y: number, isNew: boolean): void {
+    const d = this.d;
+    const col = balloonColor(kind);
+    d.view(b.id)?.onPowerUp();
+    d.particles.ring(x, y, 12, 90, 0.25, col, 0.9);
+    d.particles.burst('p_star', x, y, 10, 180, 420, { drag: 5, life: 0.4, scale0: 0.9, scale1: 0.1, alpha1: 0, spin: 8, tint: col, additive: true });
+    const label = `+${strings.powerNames[kind] ?? kind.toUpperCase()}`;
+    d.floating.show('pop', x, y - 40, label, `#${col.toString(16).padStart(6, '0')}`, 0.9);
+    if (isNew) d.floating.show('small', x + 60, y - 80, strings.newType, config.palette.gold, 0.8);
+    sfx.power_up();
+    vibrate(config.haptics.tierUp);
+  }
+
   /** Reached the top and joined the gathered balloons: its number goes into the lock. */
   private park(b: Balloon, extra: number): void {
     const d = this.d;
@@ -208,14 +229,14 @@ export class Feedback {
   private flyAway(b: Balloon): void {
     const d = this.d;
     d.releaseView(b.id);
-    d.particles.burst('p_soft', b.x, b.y, 8, 40, 160, { drag: 3, life: 0.6, scale0: b.r / 30, scale1: b.r / 18, alpha0: 0.5, alpha1: 0, tint: balloonColor(b.type, b.tint) }, b.r * 0.5);
+    d.particles.burst('p_soft', b.x, b.y, 8, 40, 160, { drag: 3, life: 0.6, scale0: b.r / 30, scale1: b.r / 18, alpha0: 0.5, alpha1: 0, tint: balloonColor('normal', b.tint) }, b.r * 0.5);
     sfx.deflate();
   }
 
   private arrive(b: Balloon, total: number): void {
     const d = this.d;
     const j = config.juice;
-    const col = balloonColor(b.type, b.tint);
+    const col = balloonColor('normal', b.tint);
     d.releaseView(b.id);
     d.particles.ring(b.x, b.y, b.r * 0.4, b.r * 1.8 + 40, 0.25, 0xffffff);
     // muzzle-like flash where the bullets come out
@@ -240,7 +261,7 @@ export class Feedback {
         tint: CONFETTI[i % CONFETTI.length],
       });
     }
-    d.tokens.launch(b.x, b.y, d.hero.counterX(), d.hero.counterY(), total);
+    d.tokens.launch(b.x, b.y, d.hero.counterX(), d.hero.counterY(), total, b.type);
     sfx.arrival_pop();
     d.shake.add(j.trauma.arrival);
   }
@@ -260,7 +281,7 @@ export class Feedback {
     const x = b.x;
     const y = b.y;
     const r = b.r;
-    const col = balloonColor(b.type, b.tint);
+    const col = balloonColor('normal', b.tint);
     this.later(stop, () => {
       const pm = j.particles;
       const n = pm.popShardsMin + Math.floor(Math.random() * (pm.popShardsMax - pm.popShardsMin + 1)) + (over ? 8 : 0);

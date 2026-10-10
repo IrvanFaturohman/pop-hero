@@ -7,8 +7,8 @@ import { closest } from '../logic/spikes';
 import { markFtueDone } from '../storage';
 import { strings } from '../strings';
 import { canvasTex } from './canvasTex';
+import { fontFamily, fontWeight } from './gui';
 
-const FONT = 'Fredoka, system-ui, sans-serif';
 
 export function makeHandTexture(scene: Phaser.Scene): void {
   canvasTex(scene, 'hand', 80, 96, (c) => {
@@ -40,6 +40,7 @@ export class Tutorial {
   private arrow: Phaser.GameObjects.Graphics;
   private avoid: Phaser.GameObjects.Text;
   private avoidShown = false;
+  private gloved: boolean;
   private avoidT = 0;
   private t = 0;
 
@@ -47,10 +48,13 @@ export class Tutorial {
     this.active = enabled;
     const txt = (msg: string, size: number, color: string) =>
       scene.add
-        .text(0, 0, msg, { fontFamily: FONT, fontSize: `${size}px`, fontStyle: '700', color, stroke: config.palette.outline, strokeThickness: 9, resolution: textRes })
+        .text(0, 0, msg, { fontFamily: fontFamily('sen'), fontSize: `${size}px`, fontStyle: fontWeight(), color, stroke: config.palette.outline, strokeThickness: 9, resolution: textRes })
         .setOrigin(0.5)
         .setVisible(false);
-    this.hand = scene.add.image(0, 0, 'hand').setVisible(false);
+    // Layer Lab hand: fingertip at the top-left, pivot on it and turn it to point up
+    this.gloved = scene.textures.exists('ui_tutorial_hand_2');
+    this.hand = scene.add.image(0, 0, this.gloved ? 'ui_tutorial_hand_2' : 'hand').setVisible(false);
+    if (this.gloved) this.hand.setOrigin(0.18, 0.16).setDisplaySize(118, 118);
     this.label = txt(strings.hold, 40, '#ffffff');
     this.lockHint = txt(strings.fillLock, 28, config.palette.gold);
     this.avoid = txt(strings.avoid, 32, config.palette.danger);
@@ -81,9 +85,10 @@ export class Tutorial {
     this.label.setVisible(showHand);
     if (showHand) {
       const bx = a ? a.x : L.width / 2;
-      const by = a ? a.y + a.r + 40 : 1080;
+      const by = a ? a.y + a.r + 40 : L.roomBottom - 180;
       const press = this.step === 'hold' ? Math.max(0, Math.sin(this.t * 4)) * 14 : -Math.abs(Math.sin(this.t * 4)) * 24;
-      this.hand.setPosition(bx + 20, by + press).setAngle(-15);
+      if (this.gloved) this.hand.setPosition(bx + 20, by - 42 + press).setAngle(28);
+      else this.hand.setPosition(bx + 20, by + press).setAngle(-15);
       this.label.setText(this.step === 'hold' ? strings.hold : strings.release).setPosition(bx, by + 80);
       this.label.setScale(1 + Math.sin(this.t * 6) * 0.06);
     }

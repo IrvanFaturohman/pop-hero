@@ -33,6 +33,9 @@ export class InputController {
     window.addEventListener('keyup', this.keyUp);
   }
 
+  /** World y - screen y while the camera is panned (set by the game scene every frame). */
+  worldOffsetY = 0;
+
   toGame(clientX: number, clientY: number): { x: number; y: number } {
     const r = this.canvas.getBoundingClientRect();
     return {
@@ -77,9 +80,10 @@ export class InputController {
     if (!this.enabled || this.pointerId !== null || this.keyHeld) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     const p = this.toGame(e.clientX, e.clientY);
+    // blockers (pause button, debug corner) live in screen space; the room in world space
     for (const b of this.blockers) if (b(p.x, p.y)) return;
     this.x = p.x;
-    this.y = p.y;
+    this.y = p.y + this.worldOffsetY;
     this.pointerId = e.pointerId;
     this.held = true;
     this.pressed = true;
@@ -96,7 +100,7 @@ export class InputController {
     if (this.pointerId === null && (e.pointerType !== 'mouse' || this.keyHeld)) return;
     const p = this.toGame(e.clientX, e.clientY);
     this.x = p.x;
-    this.y = p.y;
+    this.y = p.y + this.worldOffsetY;
   };
 
   private up = (e: PointerEvent): void => {
