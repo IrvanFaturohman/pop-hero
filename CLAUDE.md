@@ -11,9 +11,9 @@ Design sources, in priority order:
 2. `DESIGN_NOTES.md` §0b (current design summary), §0c (video analysis), §0a/§0 (decisions from playtests that override the brief), plus open questions.
 3. `PROMPT.md`, the original brief. Parts of it are outdated (pump/pipe, spinners, vertical real-time battle).
 
-`CHANGELOG.md` has one entry per milestone or playtest round (M0 to M5.x).
+`CHANGELOG.md` has one entry per milestone or playtest round (`M<n>` / `M<n>.<m>`, newest first).
 
-Language: `README.md`, `DESIGN_NOTES.md` and `CHANGELOG.md` are written in Indonesian. Code identifiers and comments are in English (the brief requires this). In-game UI text is English and lives in `src/strings.ts`.
+Language: reply to the user in Indonesian. `README.md`, `DESIGN_NOTES.md` and `CHANGELOG.md` are written in Indonesian. Code identifiers and comments are in English (the brief requires this), and so are commit messages. In-game UI text is English and lives in `src/strings.ts`.
 
 ## Commands
 
@@ -66,6 +66,8 @@ node scripts/playtest.mjs [url]          # scripted hold/release playtest (needs
 - Characters and UI come from Layer Lab (user decision, 2026-10-10). Its raw files stay out of git (`public/assets/layerlab/` is gitignored: paid asset, public repo). Other art is drawn in code (`view/textures*.ts`).
 
 ## Working rules
+
+The user's general rules, imported from `.claude/context/`. The project-specific notes above take precedence. Milestone numbers (`M8.1`) appear only in `CHANGELOG.md` headings, never in commit messages (`GIT.md` bans planning jargon there).
 
 @.claude/context/COMMUNICATION.md
 @.claude/context/CODING.md
