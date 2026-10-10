@@ -64,9 +64,9 @@ Sumber: youtube.com/watch?v=AxqvqGEy6BU (22 menit, 3 run: kalah di gelombang 5, 
 
 **Bintang**: hanya dari power-up bintang. Bintang hanya berlaku dalam satu run.
 
-**Art (M8, 2026-10-10)**: karakter, monster, dan UI dari paket Layer Lab (lihat CHANGELOG M8); elite = Slime King, boss = Magma King. Nama kode tetap `ratking` / `mole`. Belum dibahas: cakar boss di ruang balon masih gambar lama (cakar tikus tanah) dan kurang cocok dengan slime.
+**Art (M9, 2026-10-11)**: hero dan musuh dirakit dari Layer Lab 2D Minimal-CharacterMaker, UI dari GUI Pro-MinimalGame (lihat CHANGELOG M9); elite = Beast King, boss = Claw King. Nama kode tetap `ratking` / `mole`. Belum dibahas: cakar boss di ruang balon masih gambar lama (cakar tikus tanah); ruang balon masih panel gelap berdinding biru (gaya paket UI lama), belum gaya krem/cokelat paket baru.
 
-**Boss Digger Mole** (sekarang tampil sebagai Magma King; desain lama: tikus tanah berhelm tambang): tiap giliranmu ia menggali cakar dari dinding kiri/kanan ruang balon di ketinggian acak (bergantian sisi). Balon yang sedang ditiup meletus kalau kena cakar; balon yang dilepas memantul di sekitarnya; duri juga memantul. Slam tiap 2 giliran musuh (fase 2: tiap giliran, cakar lebih panjang), panggil 2 tikus tiap 3 giliran. Rat King di gelombang 5 sama seperti dulu (slam + panggil tikus + fase 2).
+**Boss Digger Mole** (sekarang tampil sebagai Claw King; desain lama: tikus tanah berhelm tambang): tiap giliranmu ia menggali cakar dari dinding kiri/kanan ruang balon di ketinggian acak (bergantian sisi). Balon yang sedang ditiup meletus kalau kena cakar; balon yang dilepas memantul di sekitarnya; duri juga memantul. Slam tiap 2 giliran musuh (fase 2: tiap giliran, cakar lebih panjang), panggil 2 tikus tiap 3 giliran. Rat King di gelombang 5 sama seperti dulu (slam + panggil tikus + fase 2).
 
 **Tembakan & peluru** (diukur dari video, M6.2; tempo diturunkan ke 2,0–2,4/detik di M8.1 karena terasa terlalu cepat): hero menembak satu per satu; balon penuh = 10 peluru; satu giliran ~10–18 peluru (video 9–15).
 

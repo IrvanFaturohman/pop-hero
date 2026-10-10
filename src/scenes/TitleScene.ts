@@ -10,7 +10,7 @@ import { strings } from '../strings';
 import { ArenaView } from '../view/arenaView';
 import { RoomView } from '../view/roomView';
 import { Rig } from '../view/rig';
-import { fontFamily, fontWeight } from '../view/gui';
+import { FONT, FONT_WEIGHT } from '../view/gui';
 
 const HOLD_TIME = 0.45;
 
@@ -57,7 +57,7 @@ export class TitleScene extends Phaser.Scene {
     }
     const text = (y: number, msg: string, size: number, color: string, stroke: number) =>
       this.add
-        .text(L.width / 2, y, msg, { fontFamily: fontFamily('sen'), fontSize: `${size}px`, fontStyle: fontWeight(), color, stroke: config.palette.outline, strokeThickness: stroke, resolution: rs })
+        .text(L.width / 2, y, msg, { fontFamily: FONT, fontSize: `${size}px`, fontStyle: FONT_WEIGHT, color, stroke: config.palette.outline, strokeThickness: stroke, resolution: rs })
         .setOrigin(0.5);
     this.logo = text(300, strings.title, 112, '#ffffff', 20);
     this.prompt = text(700, strings.holdToPlay, 46, config.palette.gold, 12);

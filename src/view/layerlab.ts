@@ -16,6 +16,14 @@ export interface RigPart {
   sy: number;
   w: number;
   h: number;
+  /** Sprite color (skin / hair tone) multiplied over the white part. */
+  tint?: number;
+}
+
+/** A character: its parts, back to front, and the size the game draws it at. */
+export interface RigDef {
+  scale: number;
+  parts: RigPart[];
 }
 
 /** A GUI sprite; 9-slice borders (px) when the Unity sprite has them. */
@@ -28,36 +36,19 @@ export interface GuiSprite {
 }
 
 interface Manifest {
-  rigs: Record<string, RigPart[]>;
+  rigs: Record<string, RigDef>;
   gui: GuiSprite[];
 }
 
 let manifest: Manifest | null = null;
-let fontsLoaded = false;
-
-/** The pack's text fonts (Sen ExtraBold, Cairo Black), registered as "LL Sen" / "LL Cairo". */
-export async function loadLayerLabFonts(): Promise<void> {
-  if (typeof FontFace === 'undefined' || !document.fonts) return;
-  try {
-    const faces = [new FontFace('LL Sen', `url(${BASE}fonts/Sen-ExtraBold.ttf)`), new FontFace('LL Cairo', `url(${BASE}fonts/Cairo-Black.ttf)`)];
-    for (const f of await Promise.all(faces.map((f) => f.load()))) document.fonts.add(f);
-    fontsLoaded = true;
-  } catch {
-    // missing art: the bundled Fredoka stays
-  }
-}
-
-export function hasLayerLabFonts(): boolean {
-  return fontsLoaded;
-}
 
 /** Boot preload: the manifest first, then every texture it lists. */
 export function preloadLayerLab(scene: Phaser.Scene): void {
   scene.load.json('ll_manifest', `${BASE}manifest.json`);
   scene.load.on('filecomplete-json-ll_manifest', (_key: string, _type: string, data: Manifest) => {
     manifest = data;
-    for (const parts of Object.values(data.rigs)) {
-      for (const p of parts) if (!scene.textures.exists(p.tex)) scene.load.image(p.tex, `${BASE}chars/${p.tex}.png`);
+    for (const rig of Object.values(data.rigs)) {
+      for (const p of rig.parts) if (!scene.textures.exists(p.tex)) scene.load.image(p.tex, `${BASE}chars/${p.tex}.png`);
     }
     for (const g of data.gui) scene.load.image(g.key, `${BASE}gui/${g.file}`);
   });
@@ -72,7 +63,7 @@ export function hasLayerLab(): boolean {
   return manifest !== null;
 }
 
-export function rigParts(key: string): RigPart[] | null {
+export function rigDef(key: string): RigDef | null {
   return manifest?.rigs[key] ?? null;
 }
 

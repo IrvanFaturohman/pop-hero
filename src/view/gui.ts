@@ -1,337 +1,202 @@
-// UI kit rebuilt from Layer Lab's GUI Pro-SuperCasual demo panels (Settings, Lobby, Play_UI_*,
-// PopupDim_Play_Result_*): same sprites, tints, sizes and text styles as the Unity prefabs. Sizes in
-// the prefabs are canvas units of a 1048-wide reference; `U` maps them onto our 720-wide canvas.
-// Without the art every block falls back to a flat shape so a clone without the Unity project
-// still runs.
+// UI kit rebuilt from Layer Lab's GUI Pro-MinimalGame prefabs (Button_02/03, Button_Close_01,
+// Button_Pause_01, Title_01, Title_LineDeco_01, Popup_Box_01, ItemFrame_02, ResourceBar, Swich_01,
+// Grade_Gem_01, Slider_01, Tab_01): same sprites, tints, sizes and insets as the Unity prefabs.
+// Card frames for the ability picker live in guiCards.ts; the primitives in guiCore.ts.
 import Phaser from 'phaser';
 import { config, hex } from '../config';
 import { drawCardIcon } from './cardIcons';
+import { U, corner, fill, icon, sprite, text } from './guiCore';
 import { pressable } from './hud';
-import { guiSprite, hasLayerLabFonts } from './layerlab';
 
-/** Prefab canvas unit -> game px (reference resolution 1048 wide, match width). */
-export const U = 720 / 1048;
+export { FONT, FONT_WEIGHT, INK, LINE, U, dim, fill, icon, sprite, tex, text, type LineColor, type TextOpts } from './guiCore';
 
-export const FONT = 'Fredoka, system-ui, sans-serif';
-/** Layer Lab text fonts (TMP "Sen" / "Cairo" assets), falling back to Fredoka. */
-export function fontFamily(kind: 'sen' | 'cairo'): string {
-  if (!hasLayerLabFonts()) return FONT;
-  return kind === 'sen' ? 'LL Sen, Fredoka, sans-serif' : 'LL Cairo, Fredoka, sans-serif';
-}
-
-/** fontStyle for Phaser texts: the Layer Lab fonts are already heavy (no synthetic bold). */
-export function fontWeight(): string {
-  return hasLayerLabFonts() ? '' : '700';
-}
-
-/** Outline colors of the TMP materials (Sen_Line_s_* / Cairo_Line_*). */
-export const LINE = {
-  black: '#000000',
-  blue: '#264991',
-  green: '#024e42',
-  red: '#820b39',
-  navy: '#3e11af',
-  orange: '#cb4104',
-  purple: '#7a13a5',
-  brown: '#af570f',
-} as const;
-export type LineColor = keyof typeof LINE | 'none';
-
-export interface TextOpts {
-  font?: 'sen' | 'cairo';
-  line?: LineColor;
-  color?: string;
-  /** Word wrap width (game px). */
-  wrap?: number;
-  align?: 'left' | 'center' | 'right';
-  originX?: number;
-}
-
-/**
- * Text like the pack's TMP materials: `size` is the prefab font size (canvas units); a thin outline
- * plus a solid drop of the same color under it.
- */
-export function text(scene: Phaser.Scene, x: number, y: number, msg: string, size: number, o: TextOpts = {}): Phaser.GameObjects.Text {
-  const px = Math.round(size * U);
-  const line = o.line ?? 'black';
-  const t = scene.add
-    .text(x, y, msg, {
-      fontFamily: fontFamily(o.font ?? 'sen'),
-      fontSize: `${px}px`,
-      fontStyle: hasLayerLabFonts() ? '' : '700',
-      color: o.color ?? '#ffffff',
-      align: o.align ?? 'center',
-      resolution: (scene.registry.get('renderScale') as number) ?? 1,
-    })
-    .setOrigin(o.originX ?? 0.5, 0.5);
-  if (line !== 'none') {
-    const c = LINE[line];
-    t.setStroke(c, Math.max(2, px * 0.13));
-    t.setShadow(0, Math.max(1.5, px * 0.07), c, 0, true, true);
-  }
-  if (o.wrap) t.setWordWrapWidth(o.wrap, true);
-  return t;
-}
-
-export function hasTex(scene: Phaser.Scene, key: string): boolean {
-  return scene.textures.exists(key) && guiSprite(key) !== null;
-}
-
-/** `key` when loaded, else `fallback` (procedural texture). */
-export function tex(scene: Phaser.Scene, key: string, fallback: string): string {
-  return scene.textures.exists(key) ? key : fallback;
-}
-
-/**
- * A pack sprite at w x h centered on (x, y): 9-sliced with the Unity borders (corners scaled by U,
- * like the canvas does) when it has borders, stretched otherwise. `tint` = the Image color.
- */
-export function sprite(scene: Phaser.Scene, key: string, x: number, y: number, w: number, h: number, tint?: number, alpha = 1): Phaser.GameObjects.Image | Phaser.GameObjects.NineSlice | Phaser.GameObjects.Graphics {
-  const g = guiSprite(key);
-  if (!g || !scene.textures.exists(key)) {
-    const r = scene.add.graphics();
-    r.fillStyle(tint ?? 0x3a3c58, alpha);
-    r.fillRoundedRect(x - w / 2, y - h / 2, w, h, Math.min(w, h) / 4);
-    return r;
-  }
-  let obj: Phaser.GameObjects.Image | Phaser.GameObjects.NineSlice;
-  if (!g.border) obj = scene.add.image(x, y, key).setDisplaySize(w, h);
-  else {
-    let [l, r, t, b] = g.border;
-    // a border spanning the whole texture leaves no stretch strip: take 2 px off the borders,
-    // proportionally, so the strip stays where Unity stretches it
-    [l, r] = fitBorders(l, r, g.w);
-    [t, b] = fitBorders(t, b, g.h);
-    // built at w/U x h/U (canvas units) and scaled by U; never smaller than its corners
-    const nw = Math.max(l + r + 2, w / U);
-    const nh = Math.max(t + b + 2, h / U);
-    obj = scene.add.nineslice(x, y, key, undefined, nw, nh, l, r, t, b).setScale(w / nw, h / nh);
-  }
-  if (tint !== undefined) obj.setTint(tint);
-  return obj.setAlpha(alpha);
-}
-
-function fitBorders(a: number, b: number, size: number): [number, number] {
-  const excess = a + b - (size - 2);
-  if (excess <= 0 || a + b === 0) return [a, b];
-  return [Math.max(0, Math.floor(a - (excess * a) / (a + b))), Math.max(0, Math.floor(b - (excess * b) / (a + b)))];
-}
-
-/** Icon image of `size` px (longest side), or the fallback texture. */
-export function icon(scene: Phaser.Scene, x: number, y: number, key: string, size: number, fallback?: string): Phaser.GameObjects.Image {
-  const k = scene.textures.exists(key) ? key : fallback && scene.textures.exists(fallback) ? fallback : '__WHITE';
-  const img = scene.add.image(x, y, k);
-  return img.setScale(size / Math.max(img.width, img.height));
-}
-
-/** Full-screen dim (panal_dim_Black) that swallows taps. */
-export function dim(scene: Phaser.Scene, alpha = 1): Phaser.GameObjects.Image | Phaser.GameObjects.Rectangle {
-  const L = config.layout;
-  const d = scene.textures.exists('ui_panal_dim_black')
-    ? scene.add.image(L.width / 2, L.height / 2, 'ui_panal_dim_black').setDisplaySize(L.width + 400, L.height + 600).setAlpha(alpha)
-    : scene.add.rectangle(L.width / 2, L.height / 2, L.width + 400, L.height + 600, 0x0a0618, 0.78 * alpha);
-  d.setInteractive();
-  return d;
-}
-
-export type BtnColor = 'blue' | 'sky' | 'green' | 'yellow' | 'red' | 'purple' | 'pink' | 'mint' | 'gray' | 'darkgray';
-
-/** Text outline per button color (the prefabs pair Button01_s_Blue/Sky with Sen_Line_s_Blue, ...). */
-const BTN_LINE: Record<BtnColor, LineColor> = {
-  blue: 'blue',
-  sky: 'blue',
-  green: 'green',
-  yellow: 'brown',
-  red: 'red',
-  purple: 'purple',
-  pink: 'purple',
-  mint: 'green',
-  gray: 'black',
-  darkgray: 'black',
+export type BtnColor = 'blue' | 'green' | 'yellow' | 'red' | 'orange' | 'plum' | 'pink' | 'mint' | 'gray' | 'dark' | 'brown' | 'offwhite';
+/** Button_02_* colors: [Bg, Light] (Dark has no light layer). */
+const BTN: Record<BtnColor, [number, number | null]> = {
+  blue: [0x5bb0f0, 0x8ddefa],
+  green: [0x85d048, 0xc6ef96],
+  yellow: [0xffcc00, 0xffec59],
+  red: [0xfb5951, 0xfe8d6f],
+  orange: [0xff8612, 0xffbb4c],
+  plum: [0xc76ef7, 0xe8aefc],
+  pink: [0xef6ee7, 0xfa9dff],
+  mint: [0x03e4b7, 0xacf6e7],
+  gray: [0xa39b9d, 0xc2bdbe],
+  dark: [0x464239, null],
+  brown: [0xb97a54, 0xdba47a],
+  offwhite: [0xfff8e9, 0xffffff],
 };
-const BTN_FLAT: Record<BtnColor, number> = {
-  blue: 0x2f6bff,
-  sky: 0x1fb8ff,
-  green: 0x2fd65a,
-  yellow: 0xffc21f,
-  red: 0xff3b5c,
-  purple: 0xa04dff,
-  pink: 0xff6ad5,
-  mint: 0x23d3b0,
-  gray: 0x8c8c99,
-  darkgray: 0x55546a,
-};
+
+/** Button_02 body (Bg, Light, HighLight dot) at w x h. */
+export function buttonBody(scene: Phaser.Scene, w: number, h: number, color: BtnColor): Phaser.GameObjects.GameObject[] {
+  const [bg, light] = BTN[color];
+  const items = [fill(scene, 'ui_button_02_white_bg', w, h, bg)];
+  if (light !== null) items.push(fill(scene, 'ui_button_02_white_light', w, h, light, { dw: -8, dh: -12, dy: 2 }), corner(scene, 'ui_button_02_white_highlight', w, h, 10.06, -9.33, 12, 11));
+  return items;
+}
 
 export interface ButtonOpts {
   x: number;
   y: number;
-  /** Game px; default = the prefab's 330 x 124 small button. */
+  /** Game px; default = the prefab's 322 x 130 button. */
   w?: number;
   h?: number;
   color: BtnColor;
   label?: string;
-  /** Prefab font size (default 42). */
+  /** Prefab font size (default 46). */
   size?: number;
   /** Icon texture drawn left of the label (or centered without one). */
   icon?: string;
   onTap: () => void;
 }
 
-/** Button01_s (the pack's standard pill button) with a Sen label outlined in the button's color. */
+/** Button_02 (the pack's standard button) with an outlined label. */
 export function button(scene: Phaser.Scene, o: ButtonOpts): Phaser.GameObjects.Container {
-  const w = o.w ?? 330 * U;
-  const h = o.h ?? 124 * U;
-  const key = `ui_button01_s_${o.color}`;
-  const items: Phaser.GameObjects.GameObject[] = [sprite(scene, key, 0, 0, w, h, scene.textures.exists(key) ? undefined : BTN_FLAT[o.color])];
+  const w = o.w ?? 322 * U;
+  const h = o.h ?? 130 * U;
+  const items = buttonBody(scene, w, h, o.color);
   let tx = 0;
   if (o.icon) {
-    const is = h * 0.5;
-    const ix = o.label ? -w / 2 + h * 0.6 : 0;
-    items.push(icon(scene, ix, -h * 0.04, o.icon, is));
+    const is = h * 0.55;
+    const ix = o.label ? -w / 2 + h * 0.55 : 0;
+    items.push(icon(scene, ix, -2.6 * U, o.icon, is));
     if (o.label) tx = is * 0.45;
   }
-  if (o.label) items.push(text(scene, tx, -h * 0.03, o.label, o.size ?? 42, { line: BTN_LINE[o.color] }));
+  if (o.label) items.push(text(scene, tx, -2.6 * U, o.label, o.size ?? 46));
   const c = scene.add.container(o.x, o.y, items).setSize(w, h).setInteractive({ useHandCursor: true });
   pressable(c, o.onTap);
   return c;
 }
 
-/** The lobby's big tapered yellow PLAY button (black Sen text, no outline). */
+/** Button_03_Red, the lobby's big START button. */
 export function playButton(scene: Phaser.Scene, x: number, y: number, label: string, onTap: () => void): Phaser.GameObjects.Container {
-  const w = 455 * U;
-  const h = 194 * U;
-  const key = 'ui_button_tapered_yellow';
-  const c = scene.add.container(x, y, [sprite(scene, key, 0, 0, w, h, scene.textures.exists(key) ? undefined : 0xffc21f), text(scene, 0, 4 * U, label, 88, { line: 'none', color: '#000000' })]);
+  const w = 448 * U;
+  const h = 176 * U;
+  const c = scene.add.container(x, y, [
+    fill(scene, 'ui_button_03_white_bg', w, h, 0xfb5951),
+    fill(scene, 'ui_button_03_white_light', w, h, 0xfe8d6f, { dw: -14, dh: -18, dy: 4 }),
+    corner(scene, 'ui_button_03_white_highlight', w, h, 14.5, -11.5, 15, 13),
+    fill(scene, 'ui_button_03_white_gradient', w, h, 0xfb6e51, { dw: -14, dh: -100, dy: -37 }),
+    fill(scene, 'ui_button_03_white_shadow', w, h, 0xde362e, { dw: -14, dh: -18, dy: 4 }),
+    text(scene, 0, -9.1 * U, label, 74),
+  ]);
   c.setSize(w, h).setInteractive({ useHandCursor: true });
   pressable(c, onTap);
   return c;
 }
 
-/** Round close button (Button_Circle118 + Icon_Close02). */
+/** Button_Close_01: red square button with the dark red X. */
 export function closeButton(scene: Phaser.Scene, x: number, y: number, onTap: () => void): Phaser.GameObjects.Container {
-  const c = scene.add.container(x, y, [sprite(scene, 'ui_button_circle118', 0, 0, 117 * U, 118 * U), icon(scene, 0, 0, 'ui_icon_close02', 62 * U)]);
-  c.setSize(117 * U, 118 * U).setInteractive({ useHandCursor: true });
+  const w = 103 * U;
+  const h = 106 * U;
+  const c = scene.add.container(x, y, [
+    fill(scene, 'ui_button_02_white_bg', w, h, 0xec2231),
+    fill(scene, 'ui_button_02_white_light', w, h, 0xff3e58, { dw: -9, dh: -12.1, dx: -0.2, dy: 2.2 }),
+    corner(scene, 'ui_button_02_white_highlight', w, h, 10.3, -9.4, 12, 11, 0xff7183),
+    fill(scene, 'ui_icon_close', w, h, 0x940d16, { dw: -43, dh: -45, dy: 1.6 }),
+  ]);
+  c.setSize(w, h).setInteractive({ useHandCursor: true });
   pressable(c, onTap);
   return c;
 }
 
-/** Dark rounded icon button (Button_Round03_Dark), e.g. the in-game menu / pause button. */
+/** Button_Pause_01: gray-blue square icon button (the in-game pause button). */
 export function roundButton(scene: Phaser.Scene, x: number, y: number, iconKey: string, onTap: () => void, fallback?: string): Phaser.GameObjects.Container {
-  const c = scene.add.container(x, y, [sprite(scene, 'ui_button_round03_dark', 0, 0, 130 * U, 122 * U, scene.textures.exists('ui_button_round03_dark') ? undefined : 0x2c2a44), icon(scene, 0, -2, iconKey, 66 * U, fallback)]);
-  c.setSize(130 * U, 122 * U).setInteractive({ useHandCursor: true });
+  const w = 96 * U;
+  const h = 95 * U;
+  const c = scene.add.container(x, y, [
+    fill(scene, 'ui_button_02_white_bg', w, h, 0x9096b5),
+    fill(scene, 'ui_button_02_white_light', w, h, 0xb8c1d9, { dw: -9, dh: -12.1, dx: -0.2, dy: 2.2 }),
+    corner(scene, 'ui_button_02_white_highlight', w, h, 10.3, -9.4, 12, 11),
+    icon(scene, 0, 0, iconKey, 44 * U, fallback),
+  ]);
+  c.setSize(w, h).setInteractive({ useHandCursor: true });
   pressable(c, onTap);
   return c;
 }
 
-export type RibbonColor = 'sky' | 'blue' | 'red' | 'yellow' | 'green' | 'orange' | 'purple';
-const RIBBON_LINE: Record<RibbonColor, LineColor> = { sky: 'blue', blue: 'blue', red: 'red', yellow: 'brown', green: 'green', orange: 'orange', purple: 'purple' };
-const RIBBON_FLAT: Record<RibbonColor, number> = { sky: 0x1fb8ff, blue: 0x3f5bff, red: 0xff3b5c, yellow: 0xffc21f, green: 0x2fd65a, orange: 0xff8a1f, purple: 0xa04dff };
+export type RibbonColor = 'sky' | 'blue' | 'red' | 'yellow' | 'green' | 'tangerine' | 'plum' | 'lightdark';
+const RIBBON_FLAT: Record<RibbonColor, number> = { sky: 0x4fc5fa, blue: 0x3f7bff, red: 0xfb5951, yellow: 0xffcc00, green: 0x85d048, tangerine: 0xffb347, plum: 0xc76ef7, lightdark: 0x6b6575 };
 
-/** Title ribbon (Title_Ribbon01_*, 143 tall) with its label (prefab size 67). */
-export function ribbon(scene: Phaser.Scene, x: number, y: number, w: number, color: RibbonColor, msg: string, size = 67): Phaser.GameObjects.Container {
-  const key = `ui_title_ribbon01_${color}`;
-  return scene.add.container(x, y, [sprite(scene, key, 0, 0, w, 143 * U, scene.textures.exists(key) ? undefined : RIBBON_FLAT[color]), text(scene, 0, -11 * U, msg, size, { line: RIBBON_LINE[color] })]);
+/**
+ * Title ribbon (Title_01_NoDeco_*, 115 tall, pre-colored) with its label (prefab size 52). It grows
+ * past `w` when the label needs it (the prefab keeps 110 units of tail on each side).
+ */
+export function ribbon(scene: Phaser.Scene, x: number, y: number, w: number, color: RibbonColor, msg: string, size = 52): Phaser.GameObjects.Container {
+  const key = `ui_title_01_nodeco_${color}`;
+  const t = text(scene, 0, -10.3 * U, msg, size);
+  const rw = Math.max(w, 280 * U, t.width + 220 * U);
+  return scene.add.container(x, y, [sprite(scene, key, 0, 0, rw, 115 * U, scene.textures.exists(key) ? undefined : RIBBON_FLAT[color]), t]);
 }
 
-/** Section title between two divider lines ("REWARDS" style 1, "SELECT A SKILL" style 2). */
-export function dividerTitle(scene: Phaser.Scene, x: number, y: number, msg: string, style: 1 | 2 = 1, size = 40): Phaser.GameObjects.Container {
-  const t = text(scene, 0, 0, msg, size, { line: 'none' });
-  const gap = t.width / 2 + 24 * U;
-  const lw = (style === 1 ? 174 : 163) * U;
-  const lh = (style === 1 ? 42 : 18) * U;
-  return scene.add.container(x, y, [
-    sprite(scene, `ui_title_line0${style}_divider_left`, -gap - lw / 2, 0, lw, lh, scene.textures.exists(`ui_title_line0${style}_divider_left`) ? undefined : 0xffffff),
-    sprite(scene, `ui_title_line0${style}_divider_right`, gap + lw / 2, 0, lw, lh, scene.textures.exists(`ui_title_line0${style}_divider_right`) ? undefined : 0xffffff),
+/** Section title over the pack's line deco (Title_LineDeco_01_s / _l), centered on its text. */
+export function dividerTitle(scene: Phaser.Scene, x: number, y: number, msg: string, size = 36, long = false): Phaser.GameObjects.Container {
+  const key = long ? 'ui_title_linedeco_01_l_white' : 'ui_title_linedeco_01_s_white';
+  const [lw, lh] = long ? [448, 39] : [280, 31];
+  return scene.add.container(x, y, [sprite(scene, key, 0, 47.5 * U, lw * U, lh * U, scene.textures.exists(key) ? undefined : 0xffffff), text(scene, 0, 0, msg, size)]);
+}
+
+/** Popup_Box_01_InnerBorder with the brown Title_Tapered_01 on its top edge. Body center at y = 0. */
+export function popup(scene: Phaser.Scene, cx: number, cy: number, w: number, h: number, title: string): Phaser.GameObjects.Container {
+  const t = text(scene, 0, -h / 2 + 3.97 * U - 1.9 * U, title, 50);
+  const tw = Math.max(554 * U, t.width + 124 * U + 40);
+  return scene.add.container(cx, cy, [
+    fill(scene, 'ui_popup_box_01-03_white_bg', w, h, 0xf5e9d0, { dw: -4, dh: -4 }),
+    fill(scene, 'ui_popup_box_01-03_white_border', w, h, 0x311c19),
+    fill(scene, 'ui_popup_box_01_white_innerborder', w, h, 0xfff8e9, { dw: -14, dh: -17, dy: 1.5 }),
+    sprite(scene, 'ui_title_tapered_01', 0, -h / 2 + 3.97 * U, tw, 98 * U, scene.textures.exists('ui_title_tapered_01') ? undefined : 0xc08e53),
     t,
   ]);
 }
 
-/** Popup with a top bar (Popup08_Topbar_Divided, Settings colors). Body center is at y = 0. */
-export function popup(scene: Phaser.Scene, cx: number, cy: number, w: number, h: number, title: string, iconKey?: string): Phaser.GameObjects.Container {
-  const top = 110 * U;
-  const side = 12 * U;
-  const c = scene.add.container(cx, cy, [
-    sprite(scene, 'ui_popup02-09_topber_white_bg', 0, 0, w, h, 0x0a61d3),
-    scene.add.rectangle(0, top / 2 + 2 * U, w - side * 2, h - top - 46 * U, 0x033fa4),
-    sprite(scene, 'ui_popup02-09_topber_white_bgtop', 0, -h / 2 + top / 2 + side / 2, w - side, top, 0x0e7ff2),
-    sprite(scene, 'ui_popup02-09_topber_white_bgtoplight', 0, -h / 2 + 30 * U, w - side * 2, 48 * U, 0xffffff, 0.27),
-    scene.add.rectangle(0, -h / 2 + top + side / 2 + 3 * U, w - side * 2, 6 * U, 0x022f7b),
-  ]);
-  const t = text(scene, 0, -h / 2 + top / 2 + side / 2, title, 50);
-  if (iconKey) {
-    const ic = icon(scene, 0, t.y, iconKey, 84 * U);
-    const total = ic.displayWidth + 12 + t.width;
-    ic.setX(-total / 2 + ic.displayWidth / 2);
-    t.setX(-total / 2 + ic.displayWidth + 12 + t.width / 2);
-    c.add(ic);
-  }
-  c.add(t);
-  return c;
-}
-
-export type FrameColor = 'white' | 'navy' | 'gray' | 'green' | 'blue' | 'purple' | 'yellow' | 'red';
-/** ItemFrame02 colors: [bg, light, border]. */
-const ITEM_FRAME: Record<FrameColor, [number, number, number]> = {
-  white: [0xf1f7fe, 0xffffff, 0x1a1b2c],
-  navy: [0x4e4e87, 0x7878c4, 0x181834],
-  gray: [0x617e8a, 0x82a0ab, 0x181834],
-  green: [0x53d804, 0xb2f11f, 0x024e42],
-  blue: [0x00c0ff, 0x35fbff, 0x1d3fb1],
-  purple: [0xc855ff, 0xff8aff, 0x4400a0],
-  yellow: [0xffd850, 0xfefd4e, 0x8c1703],
-  red: [0xff364d, 0xff8f9c, 0x640725],
+export type FrameColor = 'dark' | 'red' | 'blue' | 'plum' | 'green' | 'yellow' | 'brown';
+/** ItemFrame_02_* colors: [Bg, Deco, Border]. */
+const ITEM_FRAME: Record<Exclude<FrameColor, 'dark'>, [number, number, number]> = {
+  red: [0xffbab8, 0xf79694, 0xf77378],
+  blue: [0xaafcff, 0x3de6ff, 0x00aff0],
+  plum: [0xf4bdff, 0xe7a1ff, 0xd17fff],
+  green: [0x99ff79, 0x3ef26d, 0x31d75b],
+  yellow: [0xf8ec73, 0xffcf3b, 0xffbf3c],
+  brown: [0xfbbd74, 0xe7a252, 0xad7147],
 };
 
-/** Reward / item tile (ItemFrame02): framed square with an icon and a Cairo count. */
+/** A colored ItemFrame_02 (154 canvas units in the prefabs), or the dark reward tile (151). */
+export function frame(scene: Phaser.Scene, size: number, color: FrameColor): Phaser.GameObjects.GameObject[] {
+  if (color === 'dark') {
+    return [
+      sprite(scene, 'ui_basicframe_squaresharpedge_01_l_white_bg', 0, 0, size - 2 * U, size - 2 * U, 0x13151d, 0.8),
+      sprite(scene, 'ui_basicframe_squaresharpedge_01_l_white_border', 0, 0, size, size, 0x15161c),
+    ];
+  }
+  const [bg, deco, border] = ITEM_FRAME[color];
+  // tiles smaller than the 9-slice corners shrink as a whole (see sprite())
+  return [fill(scene, 'ui_itemframe_02_white_bg', size, size, bg), fill(scene, 'ui_itemframe_02_white_deco', size, size, deco), fill(scene, 'ui_itemframe_02_white_border', size, size, border)];
+}
+
+/** Reward / item tile: frame, icon and an outlined count along the bottom edge. */
 export function itemFrame(scene: Phaser.Scene, x: number, y: number, size: number, color: FrameColor, iconKey: string, count?: string, iconFallback?: string): Phaser.GameObjects.Container {
-  const [bg, light, border] = ITEM_FRAME[color];
-  const k = size / (190 * U);
-  const items: Phaser.GameObjects.GameObject[] = [
-    sprite(scene, 'ui_itemframe00-03_bg', 0, 0, size - 3 * U * k, size - 3 * U * k, bg),
-    sprite(scene, 'ui_itemframe00-03_bglight', 0, 0, size - 10 * U * k, size - 10 * U * k, light),
-    sprite(scene, 'ui_itemframe00-03_border', 0, 0, size, size, border),
-    icon(scene, 0, -4 * U * k, iconKey, 150 * U * k, iconFallback),
-  ];
-  if (count !== undefined) items.push(text(scene, size / 2 - 12 * k, size / 2 - 24 * U * k, count, 38 * k, { font: 'cairo', originX: 1 }));
+  const k = size / (151 * U);
+  const items = [...frame(scene, size, color), icon(scene, 0, -5.1 * U * k, iconKey, 128 * 1.1 * U * k, iconFallback)];
+  if (count !== undefined) items.push(text(scene, 0, size / 2 - 28.6 * U * k, count, 36 * k));
   return scene.add.container(x, y, items);
 }
 
-export type SkillColor = 'blue' | 'purple' | 'red' | 'mint';
-/** SkillFrame colors: [bg, border]. */
-const SKILL_FRAME: Record<SkillColor, [number, number]> = {
-  blue: [0x461cc3, 0x1dfcff],
-  purple: [0x5d21c2, 0xf956ff],
-  red: [0xab0f25, 0xff4a5e],
-  mint: [0x009387, 0x59ffc2],
-};
-
-/** Square skill frame (SkillFrame_l~m) around an icon. */
-export function skillFrame(scene: Phaser.Scene, x: number, y: number, size: number, color: SkillColor, iconName: string): Phaser.GameObjects.Container {
-  const [bg, border] = SKILL_FRAME[color];
-  return scene.add.container(x, y, [sprite(scene, 'ui_skillframe_l-m_bg', 0, 0, size - 4 * U, size - 4 * U, bg), abilityIcon(scene, 0, 0, iconName, size * 0.875), sprite(scene, 'ui_skillframe_l-m_border', 0, 0, size, size, border)]);
+/** Ability / power art in a colored ItemFrame_02 (the perk cards' icon frame). */
+export function skillFrame(scene: Phaser.Scene, x: number, y: number, size: number, color: FrameColor, iconName: string): Phaser.GameObjects.Container {
+  return scene.add.container(x, y, [...frame(scene, size, color), abilityIcon(scene, 0, 0, iconName, size * (128 / 154))]);
 }
 
-/** Dark banner card (BannerFrame04_Divided, the "SELECT A SKILL" rows). */
-export function bannerCard(scene: Phaser.Scene, w: number, h: number): Phaser.GameObjects.GameObject[] {
-  return [
-    sprite(scene, 'ui_bannerframe00_04-06_bg', 0, 0, w - 4 * U, h - 4 * U, 0x2c2d44),
-    scene.add.rectangle(-w / 2 + (w * 0.169) / 2 + 3 * U, 0, w * 0.169, h - 12 * U, 0x181826),
-    sprite(scene, 'ui_bannerframe00_04-06_bglight', 0, -h / 2 + 26 * U, w - 14 * U, 42 * U, 0xffffff, 0.08),
-    sprite(scene, 'ui_bannerframe00_04-06_border', 0, 0, w, h, 0x000000),
-  ];
-}
-
-/** Dark resource pill (ResourceBar_Single): icon on the left edge, Cairo value. */
+/** ResourceBar: translucent dark pill, icon on the left, outlined value. */
 export class ResourcePill {
   readonly c: Phaser.GameObjects.Container;
   readonly iconImg: Phaser.GameObjects.Image;
   private value: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene, x: number, y: number, w: number, iconKey: string, iconFallback?: string) {
-    const h = 56 * U;
-    this.iconImg = icon(scene, -w / 2 + 6 * U, 0, iconKey, 76 * U, iconFallback);
-    this.value = text(scene, 10 * U, -1, '0', 36, { font: 'cairo' });
-    this.c = scene.add.container(x, y, [sprite(scene, 'ui_resourcebar_single_bg', 0, 0, w, h, 0x1e1d26), this.iconImg, this.value]);
+    const h = 65 * U;
+    this.iconImg = icon(scene, -w / 2 + 32.4 * U, 0, iconKey, 60 * U, iconFallback);
+    this.value = text(scene, 27 * U, -1 * U, '0', 39);
+    this.c = scene.add.container(x, y, [sprite(scene, 'ui_resourcebar_bg', 0, 0, w, h, 0x1e1e1f, 0.75), this.iconImg, this.value]);
   }
 
   set(v: string): void {
@@ -339,34 +204,39 @@ export class ResourcePill {
   }
 }
 
-/** On/off switch (Switch_Single): yellow fill and handle on the right when on. */
+/** Swich_01 (210 x 85): orange with the handle right when on, tan with it left when off. */
 export function switchToggle(scene: Phaser.Scene, x: number, y: number, on: boolean, labels: [string, string]): Phaser.GameObjects.Container {
-  const w = 260 * U;
-  const h = 88 * U;
-  const hx = (on ? 56 : -56) * U;
-  const items: Phaser.GameObjects.GameObject[] = [sprite(scene, 'ui_switch_single_bg', 0, 0, w, 86 * U, on ? 0x292a3a : 0xffffff)];
-  if (on) items.push(sprite(scene, 'ui_switch_single_fill', 0, 0, w - 20 * U, 86 * U - 21 * U, scene.textures.exists('ui_switch_single_fill') ? undefined : 0xffd23f));
-  items.push(sprite(scene, 'ui_switch_single_handle', hx, 0, 148 * U, h, scene.textures.exists('ui_switch_single_handle') ? undefined : 0xffffff));
-  items.push(text(scene, hx, 1, on ? labels[0] : labels[1], 42, { line: 'none', color: '#04192d' }));
-  return scene.add.container(x, y, items);
+  const w = 210 * U;
+  const h = 85 * U;
+  const hx = (on ? 71.5 : -64.5) * U;
+  return scene.add.container(x, y, [
+    sprite(scene, on ? 'ui_swich_01_bg_on' : 'ui_swich_01_bg_off', 0, 0, w, h, scene.textures.exists('ui_swich_01_bg_on') ? undefined : on ? 0xffb347 : 0xc49a6c),
+    text(scene, (on ? -26.9 : 35.5) * U, 0, on ? labels[0] : labels[1], 36, { line: 'none', color: on ? '#ffffff' : '#f5e9d0' }),
+    sprite(scene, 'ui_swich_01_handle', hx, 0, 81 * U, h, scene.textures.exists('ui_swich_01_handle') ? undefined : 0xfff8e9),
+  ]);
 }
 
-/** Card / stat icon names -> the pack's demo skill art. */
+/** Card / stat icon names -> the pack's icon art. */
 const SKILL_ART: Record<string, string> = {
-  twin: 'ui_skillicon01_4',
-  bullet: 'ui_skillicon02_3',
-  arrow: 'ui_skillicon01_3',
-  heart: 'ui_skillicon02_1',
-  gauge: 'ui_skillicon01_6',
-  crit: 'ui_skillicon01_2',
-  bolt: 'ui_skillicon01_5',
-  shield: 'ui_icon_shield',
-  wind: 'ui_skillicon02_2',
-  sword: 'ui_icon_sword01',
-  life: 'ui_icon_heart',
+  twin: 'ui_gear_bow_01',
+  bullet: 'ui_stat_attack_01',
+  arrow: 'ui_item_horseshoe_01_silver',
+  heart: 'ui_economy_heart_02_red',
+  gauge: 'ui_misc_baloon_01',
+  crit: 'ui_ui_etc_target_01',
+  bolt: 'ui_misc_fist_01_gold',
+  shield: 'ui_gear_shield_03_gold',
+  wind: 'ui_item_feather_02_blue',
+  sword: 'ui_gear_weapons_sword_01',
+  life: 'ui_economy_heart_red',
+  armor: 'ui_gear_shield_01',
 };
 
-/** An ability / stat icon of `size` px: the pack's skill art, or the procedural drawing. */
+export function abilityIconKey(name: string): string | undefined {
+  return SKILL_ART[name];
+}
+
+/** An ability / stat icon of `size` px: the pack's art, or the procedural drawing. */
 export function abilityIcon(scene: Phaser.Scene, x: number, y: number, name: string, size: number): Phaser.GameObjects.GameObject {
   const key = SKILL_ART[name];
   if (key && scene.textures.exists(key)) return icon(scene, x, y, key, size);
@@ -375,34 +245,37 @@ export function abilityIcon(scene: Phaser.Scene, x: number, y: number, name: str
   return g;
 }
 
-/** Level gems row (GradeIcon_Gem_On / Off), centered on (x, y). */
+/** Grade_Gem_01 row (44 x 47 each, empty ones tinted dark), centered on (x, y). */
 export function gems(scene: Phaser.Scene, x: number, y: number, on: number, total: number, scale = 1): Phaser.GameObjects.Container {
-  const w = 29 * U * scale;
-  const h = 38 * U * scale;
+  const w = 44 * U * scale;
+  const h = 47 * U * scale;
   const items: Phaser.GameObjects.GameObject[] = [];
   for (let i = 0; i < total; i++) {
-    const gx = (i - (total - 1) / 2) * (w + 2);
-    if (scene.textures.exists('ui_gradeicon_gem_on')) items.push(scene.add.image(gx, 0, i < on ? 'ui_gradeicon_gem_on' : 'ui_gradeicon_gem_off').setDisplaySize(w, h));
-    else items.push(scene.add.circle(gx, 0, w / 2, i < on ? hex(config.palette.gold) : 0x9aa3c7));
+    const gx = (i - (total - 1) / 2) * (50 * U * scale);
+    if (scene.textures.exists('ui_grade_gem_01')) items.push(i < on ? scene.add.image(gx, 0, 'ui_grade_gem_01').setDisplaySize(w, h) : scene.add.image(gx, 0, 'ui_grade_gem_01_empty').setDisplaySize(w, h).setTint(0x403130));
+    else items.push(scene.add.circle(gx, 0, w / 2, i < on ? hex(config.palette.gold) : 0x403130));
   }
   return scene.add.container(x, y, items);
 }
 
-/** Level bar (Slider_Level02): dark background + blue fill. */
+/** Slider_01: dark slate bar with a flat fill (lighter strip on top, highlight dot). */
 export class LevelBar {
   readonly c: Phaser.GameObjects.Container;
-  private fill: Phaser.GameObjects.GameObject | null = null;
+  private fill: Phaser.GameObjects.Container | null = null;
   private fw: number;
+  private fh: number;
 
   constructor(
     private scene: Phaser.Scene,
     x: number,
     y: number,
     w: number,
-    private h: number,
+    h: number,
+    private colors: [fill: number, light: number] = [0x35a6e1, 0x50cbee],
   ) {
-    this.c = scene.add.container(x, y, [sprite(scene, 'ui_slider_level02_bg_single', 0, 0, w, h, scene.textures.exists('ui_slider_level02_bg_single') ? undefined : 0x1e1e2a)]);
-    this.fw = w - 11 * U;
+    this.c = scene.add.container(x, y, [sprite(scene, 'ui_slider_01_white_bg', 0, 0, w, h, 0x585f74)]);
+    this.fw = w - 8 * U;
+    this.fh = h - 8 * U;
   }
 
   set(frac: number): void {
@@ -410,44 +283,36 @@ export class LevelBar {
     this.fill?.destroy();
     this.fill = null;
     if (frac <= 0) return;
-    const fh = this.h - 10 * U;
-    const w = Math.max(fh, this.fw * frac);
-    const key = 'ui_slider_level02_fill01_blue';
-    this.fill = sprite(this.scene, key, -this.fw / 2 + w / 2, 0, w, fh, this.scene.textures.exists(key) ? undefined : 0x31b9ff);
+    const s = this.scene;
+    const w = Math.max(this.fh * 0.5, this.fw * frac);
+    const top = -this.fh / 2;
+    this.fill = s.add.container(-this.fw / 2 + w / 2, 0, [
+      s.add.rectangle(0, 0, w, this.fh, this.colors[0]),
+      s.add.rectangle(0, top + 5 * U + 4.45 * U, w, 8.9 * U, this.colors[1]),
+      sprite(s, 'ui_slider_01_white_fill_highlight', -w / 2 + 8 * U + 8 * U, top + 5 * U + 5 * U, 16 * U, 10 * U),
+    ]);
     this.c.add(this.fill);
   }
 }
 
 /** Power-up kind -> the pack icon that stands for it (emblem texture as the fallback). */
 const POWER_ICON: Record<string, string> = {
-  fire: 'ui_icon_fire02',
-  ice: 'ui_pictoicon_freezee',
-  bomb: 'ui_pictoicon_bomb_1',
-  heal: 'ui_icon_heart',
-  star: 'ui_itemicon_star_gold',
-  redstar: 'ui_itemicon_star_red',
+  fire: 'ui_misc_fire_01_red',
+  ice: 'ui_misc_snowflake_01',
+  bomb: 'ui_consumable_explosives_bomb_01_black',
+  heal: 'ui_economy_heart_red',
+  star: 'ui_economy_star_01_yellow',
+  redstar: 'ui_economy_star_01_red',
 };
-/** Power-up kind -> small skill frame tint [bg, border]. */
-const POWER_FRAME: Record<string, [number, number]> = {
-  fire: [0xab0f25, 0xff4a5e],
-  ice: [0x1d6fd8, 0x1dfcff],
-  bomb: [0x5d21c2, 0xf956ff],
-  heal: [0x009387, 0x59ffc2],
-  star: [0xc77700, 0xffe14a],
-  redstar: [0x8d1401, 0xff4646],
-};
+/** Power-up kind -> its tile color. */
+const POWER_FRAME: Record<string, FrameColor> = { fire: 'red', ice: 'blue', bomb: 'plum', heal: 'green', star: 'yellow', redstar: 'red' };
 
 export function powerIconKey(scene: Phaser.Scene, kind: string): string {
   const k = POWER_ICON[kind];
   return k && scene.textures.exists(k) ? k : `emb_${kind}`;
 }
 
-/** A power-up as a small framed tile (SkillFrame_s + icon), centered on (x, y). */
+/** A power-up as a small framed tile (ItemFrame_02 + icon), centered on (x, y). */
 export function powerTile(scene: Phaser.Scene, x: number, y: number, size: number, kind: string): Phaser.GameObjects.Container {
-  const [bg, border] = POWER_FRAME[kind] ?? [0x2c2d44, 0xffffff];
-  return scene.add.container(x, y, [
-    sprite(scene, 'ui_skillframe_s_bg', 0, 0, size - 3, size - 3, bg),
-    icon(scene, 0, 0, powerIconKey(scene, kind), size * 0.72),
-    sprite(scene, 'ui_skillframe_s_border', 0, 0, size, size, border),
-  ]);
+  return scene.add.container(x, y, [...frame(scene, size, POWER_FRAME[kind] ?? 'brown'), icon(scene, 0, 0, powerIconKey(scene, kind), size * 0.74)]);
 }

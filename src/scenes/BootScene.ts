@@ -1,7 +1,7 @@
 // Boot: load the Layer Lab art (optional), wait for the bundled font, generate the procedural
 // textures, then start the game.
 import Phaser from 'phaser';
-import { loadLayerLabFonts, preloadLayerLab } from '../view/layerlab';
+import { preloadLayerLab } from '../view/layerlab';
 import { makeTextures } from '../view/textures';
 
 async function loadFonts(): Promise<void> {
@@ -21,7 +21,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
-    void Promise.all([loadFonts(), loadLayerLabFonts()]).then(() => {
+    void loadFonts().then(() => {
       makeTextures(this);
       this.scene.start('Title');
       document.getElementById('boot')?.remove();

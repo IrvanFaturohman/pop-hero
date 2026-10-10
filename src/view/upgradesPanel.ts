@@ -1,23 +1,23 @@
 // Home screen UPGRADES tab in the pack's lobby style: the hero on a soft shadow, rank
-// "APPRENTICE n" with a level bar (Slider_Level02 + rank badge) toward the next rank, and three
-// permanent stat cards (DAMAGE / HEALTH / ARMOR) as item tiles with level, bonus and a coin price
-// button. Tapping an affordable card buys a level.
+// "APPRENTICE n" with a level bar (Slider_Level_02: Slider_01 + diamond rank badge) toward the next
+// rank, and three permanent stat cards (DAMAGE / HEALTH / ARMOR) as item tiles with level, bonus
+// and a coin price button. Tapping an affordable card buys a level.
 import Phaser from 'phaser';
 import { config } from '../config';
 import { STATS, buyLevel, rankOf, statBonus, upgradeCost, type MetaState, type StatId } from '../logic/meta';
 import { strings } from '../strings';
-import { LevelBar, U, icon, itemFrame, sprite, text, type FrameColor } from './gui';
+import { LevelBar, U, buttonBody, icon, itemFrame, sprite, text, type FrameColor } from './gui';
 import { pressable } from './hud';
 import { Rig } from './rig';
 
 const STAT: Record<StatId, { icon: string; color: FrameColor }> = {
-  damage: { icon: 'ui_icon_sword01', color: 'red' },
-  health: { icon: 'ui_icon_heart', color: 'green' },
-  armor: { icon: 'ui_icon_shield', color: 'blue' },
+  damage: { icon: 'ui_gear_weapons_sword_01', color: 'red' },
+  health: { icon: 'ui_economy_heart_red', color: 'green' },
+  armor: { icon: 'ui_gear_shield_01', color: 'blue' },
 };
 const HERO_Y = 560;
-const BAR = { y: 680, w: 296 * U * 1.6, h: 70 * U };
-const CARD = { y: 880, size: 190 * U * 0.95, dx: 220 };
+const BAR = { y: 680, w: 420 * U, h: 49 * U };
+const CARD = { y: 870, size: 154 * U, dx: 220 };
 
 export class UpgradesPanel {
   readonly root: Phaser.GameObjects.Container;
@@ -32,7 +32,7 @@ export class UpgradesPanel {
   ) {
     const L = config.layout;
     this.dynamic = scene.add.container(0, 0);
-    const items: Phaser.GameObjects.GameObject[] = [sprite(scene, 'ui_image_oval', L.width / 2, HERO_Y, 300, 70, 0x000000, 0.25)];
+    const items: Phaser.GameObjects.GameObject[] = [sprite(scene, 'ui_image_deco_oval', L.width / 2, HERO_Y, 300, 70, 0x000000, 0.25)];
     const rig = Rig.create(scene, 'hero');
     if (rig) items.push(rig.face(1).setPosition(L.width / 2 - 10, HERO_Y + 6).c);
     else items.push(scene.add.image(L.width / 2 - 10, HERO_Y - 70, 'hero').setScale(1.4), scene.add.image(L.width / 2 + 14, HERO_Y - 56, 'blaster').setOrigin(0.15, 0.55).setScale(1.4));
@@ -49,13 +49,13 @@ export class UpgradesPanel {
     const cx = L.width / 2 + 20;
     const bar = new LevelBar(s, cx, BAR.y, BAR.w, BAR.h);
     bar.set(r.progress);
-    const badgeX = cx - BAR.w / 2 - 6;
+    const badgeX = cx - BAR.w / 2 - 4;
     this.dynamic.add([
       text(s, L.width / 2, HERO_Y + 50, strings.rank(r.rank), 56, { color: config.palette.gold }),
       bar.c,
-      text(s, cx, BAR.y - 1, `${r.into}/${config.meta.levelsPerRank}`, 38, { font: 'cairo' }),
-      sprite(s, 'ui_slider_level02_icon_badge_blue', badgeX, BAR.y, 102 * U, 107 * U),
-      text(s, badgeX, BAR.y + 1, String(r.rank), 52, { font: 'cairo' }),
+      text(s, cx, BAR.y, `${r.into}/${config.meta.levelsPerRank}`, 30),
+      sprite(s, 'ui_slider_level_02_icon', badgeX, BAR.y, 90 * U, 90 * U, s.textures.exists('ui_slider_level_02_icon') ? undefined : 0x35a6e1),
+      text(s, badgeX, BAR.y, String(r.rank), 44),
     ]);
     STATS.forEach((stat, i) => this.dynamic.add(this.card(stat, L.width / 2 + (i - 1) * CARD.dx)));
   }
@@ -67,13 +67,16 @@ export class UpgradesPanel {
     const ok = this.meta.coins >= cost;
     const def = STAT[stat];
     const S = CARD.size;
+    const price = s.add.container(0, S / 2 + 118, [
+      ...buttonBody(s, 180, 64, ok ? 'green' : 'gray'),
+      icon(s, -34, -2, 'ui_economy_coin_02_gold', 40, 'ic_coin'),
+      text(s, 14, -2, String(cost), 40, { color: ok ? '#ffffff' : '#ffd0d0' }),
+    ]);
     const items: Phaser.GameObjects.GameObject[] = [
       itemFrame(s, 0, 0, S, def.color, def.icon, strings.level(lv)),
-      text(s, 0, S / 2 + 26, strings.statNames[stat], 40),
-      text(s, 0, S / 2 + 58, `+${statBonus(stat)}`, 38, { font: 'cairo', color: '#3ddc84' }),
-      sprite(s, `ui_button01_s_${ok ? 'green' : 'gray'}`, 0, S / 2 + 112, 180, 64),
-      icon(s, -30, S / 2 + 109, 'ui_itemicon_money_coin', 40, 'ic_coin'),
-      text(s, 16, S / 2 + 109, String(cost), 40, { font: 'cairo', color: ok ? '#ffffff' : '#ffb0b0' }),
+      text(s, 0, S / 2 + 28, strings.statNames[stat], 40),
+      text(s, 0, S / 2 + 62, `+${statBonus(stat)}`, 38, { color: '#69ff20' }),
+      price,
     ];
     const c = s.add.container(x, CARD.y, items);
     c.setSize(S + 20, S + 280).setInteractive({ useHandCursor: true });

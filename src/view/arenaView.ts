@@ -1,14 +1,15 @@
-// Upper battle arena, side view. With the Layer Lab art: the monster pack's flat battlefield. The
-// procedural fallback is the reference forest strip (teal sky, mountains, tree trunks, bushes, a
-// grass-edged dirt road) over dark earth.
+// Upper battle arena, side view. With the Layer Lab art: a flat battlefield in the packs' flat
+// colors. The procedural fallback is the reference forest strip (teal sky, mountains, tree trunks,
+// bushes, a grass-edged dirt road) over dark earth.
 import Phaser from 'phaser';
 import { config, hex } from '../config';
+import { hasLayerLab } from './layerlab';
 
 const MARGIN = 80; // extra area so camera shake/rotation/zoom never shows edges
 
 export class ArenaView {
   constructor(scene: Phaser.Scene, layer: Phaser.GameObjects.Layer) {
-    if (scene.textures.exists('ui_bg_stone')) {
+    if (hasLayerLab()) {
       this.flat(scene, layer);
       return;
     }
@@ -75,10 +76,7 @@ export class ArenaView {
 
   }
 
-  /**
-   * The monster pack's battlefield: flat backdrop color, a sand road with stones and weed tufts at
-   * native size, and the goblin fortress at the right edge behind the enemies.
-   */
+  /** Flat battlefield: backdrop color, soft far hills and a sand road over the earth band. */
   private flat(scene: Phaser.Scene, layer: Phaser.GameObjects.Layer): void {
     const L = config.layout;
     const p = config.palette;
@@ -100,13 +98,6 @@ export class ArenaView {
     g.fillStyle(hex(p.earth), 1);
     g.fillRect(-MARGIN, roadBot, L.width + MARGIN * 2, L.roomTop - roadBot + 4);
     layer.add(g);
-    const fort = scene.add.image(L.width + 8, L.groundY + 16, 'ui_fortress_goblin').setOrigin(1, 1);
-    layer.add(fort);
-    // props on the road: fixed spots so every run looks the same
-    const stones: Array<[number, number]> = [[60, 600], [300, 612], [520, 470], [650, 590]];
-    const weeds: Array<[number, number]> = [[30, 450], [180, 470], [250, 585], [420, 610], [470, 452], [610, 520], [700, 455]];
-    for (const [x, y] of stones) layer.add(scene.add.image(x, y, 'ui_bg_stone'));
-    for (const [x, y] of weeds) layer.add(scene.add.image(x, y, 'ui_bg_weed'));
   }
 
   private trunks(g: Phaser.GameObjects.Graphics, color: number, wMin: number, wMax: number, spacing: number, offset: number, bottom: number): void {

@@ -1,20 +1,26 @@
-// "Select a new ability" overlay in the pack's Play_UI_ChoiceSkill layout: dark dim, star pills on
-// top, the divider title, and three dark banner cards (skill frame + art, name, description of the
-// level you'd get, level gems) with a price button (FREE / yellow stars / red stars, gray when you
-// can't pay). Evolutions get a red frame and an EVOLVE tag. If nothing is affordable a SKIP button
-// appears. The picked card flies to the hero, the others fall away.
+// "Select a new ability" overlay in the pack's Play_Perk_Selection_01 layout: dark dim, the title
+// ribbon, star pills, and three cream cards side by side (grade tag, framed art, name, description
+// of the level you'd get, level gems) with a price button under each (FREE / yellow stars / red
+// stars, gray when you can't pay). The card color follows the price; evolutions are gold cards
+// with an EVOLVE tag. If nothing is affordable a SKIP button appears. The picked card flies to the
+// hero, the others fall away.
 import Phaser from 'phaser';
 import { MAX_LEVEL, canAfford, cardDesc, cardName, type Card, type Wallet } from '../abilities';
 import { config } from '../config';
 import { easeInQuad, easeOutBack } from '../juice/ease';
 import { strings } from '../strings';
-import { ResourcePill, U, bannerCard, button, dim, dividerTitle, gems, icon, skillFrame, sprite, text, type BtnColor } from './gui';
+import { INK, ResourcePill, U, button, buttonBody, dim, gems, icon, ribbon, skillFrame, text, type BtnColor, type FrameColor } from './gui';
+import { cardFrame, tag, type CardColor, type TagColor } from './guiCards';
 
-/** BannerFrame04_Divided is 850 x 275 canvas units; the cards sit at prefab y 131 / -167 / -467. */
-const W = 850 * U;
-const H = 275 * U;
-const YS = [131, -167, -467].map((y) => 640 - y * U);
-const TITLE_Y = 640 - 337.7 * U;
+/** CardFrame_01 is 308 x 640 canvas units; the cards sit 370.84 apart around prefab y -41. */
+const W = 308 * U;
+const H = 640 * U;
+const XS = [-370.84, 0, 370.84].map((x) => 360 + x * U);
+const CARD_Y = 640 + 41 * U;
+const TITLE_Y = 640 - 518 * U;
+const WALLET_Y = 640 - 413 * U;
+/** Price button under the card. */
+const BTN = { y: H / 2 + 72 * U, w: 236 * U, h: 100 * U };
 
 interface CardObj {
   c: Phaser.GameObjects.Container;
@@ -25,9 +31,17 @@ interface CardObj {
   shakeT: number;
 }
 
+/** Card look by price: [card, art frame, tag]. */
+function look(card: Card): [CardColor, FrameColor, TagColor] {
+  if (card.kind === 'evo') return ['red', 'red', 'red'];
+  if (card.redStars > 0) return ['plum', 'plum', 'plum'];
+  if (card.stars > 0) return ['blue', 'blue', 'blue'];
+  return ['green', 'green', 'green'];
+}
+
 export class CardPicker {
   private root: Phaser.GameObjects.Container;
-  private shade: Phaser.GameObjects.Image | Phaser.GameObjects.Rectangle;
+  private shade: Phaser.GameObjects.Rectangle;
   private title: Phaser.GameObjects.Container;
   private wallet: Phaser.GameObjects.Container;
   private skip: Phaser.GameObjects.Container | null = null;
@@ -46,8 +60,8 @@ export class CardPicker {
     _textRes: number,
   ) {
     this.shade = dim(scene);
-    this.title = dividerTitle(scene, config.layout.width / 2, TITLE_Y, strings.selectAbility, 2, 40);
-    this.wallet = scene.add.container(config.layout.width / 2, TITLE_Y - 80);
+    this.title = ribbon(scene, config.layout.width / 2, TITLE_Y, 656 * U, 'tangerine', strings.selectAbility, 46);
+    this.wallet = scene.add.container(config.layout.width / 2, WALLET_Y);
     this.root = scene.add.container(0, 0, [this.shade, this.title, this.wallet]).setVisible(false);
     layer.add(this.root);
   }
@@ -72,9 +86,9 @@ export class CardPicker {
 
   private drawWallet(w: Wallet): void {
     this.wallet.removeAll(true);
-    const pw = 168 * U;
-    const red = new ResourcePill(this.scene, -pw / 2 - 8, 0, pw, 'ui_itemicon_star_red', 'ic_redstar');
-    const yellow = new ResourcePill(this.scene, pw / 2 + 8, 0, pw, 'ui_itemicon_star_gold', 'ic_star');
+    const pw = 220 * U;
+    const red = new ResourcePill(this.scene, -pw / 2 - 10, 0, pw, 'ui_economy_star_01_red', 'ic_redstar');
+    const yellow = new ResourcePill(this.scene, pw / 2 + 10, 0, pw, 'ui_economy_star_01_yellow', 'ic_star');
     red.set(String(w.redStars));
     yellow.set(String(w.stars));
     this.wallet.add([red.c, yellow.c]);
@@ -84,37 +98,35 @@ export class CardPicker {
   private priceButton(card: Card, ok: boolean): Phaser.GameObjects.Container {
     const s = this.scene;
     const free = card.stars === 0 && card.redStars === 0;
-    const color: BtnColor = !ok ? 'gray' : card.kind === 'evo' ? 'yellow' : free ? 'green' : 'sky';
-    const bw = 190 * U;
-    const bh = 96 * U;
-    const items: Phaser.GameObjects.GameObject[] = [sprite(s, `ui_button01_s_${color}`, 0, 0, bw, bh)];
-    if (free) items.push(text(s, 0, -2, strings.free, 36, { line: color === 'gray' ? 'black' : 'green' }));
+    const color: BtnColor = !ok ? 'gray' : card.kind === 'evo' ? 'orange' : free ? 'green' : 'blue';
+    const items = buttonBody(s, BTN.w, BTN.h, color);
+    if (free) items.push(text(s, 0, -2, strings.free, 42));
     else {
       const red = card.redStars > 0;
-      items.push(icon(s, -22, -3, red ? 'ui_itemicon_star_red' : 'ui_itemicon_star_gold', 40, red ? 'ic_redstar' : 'ic_star'));
-      items.push(text(s, 18, -2, String(red ? card.redStars : card.stars), 40, { font: 'cairo', color: ok ? '#ffffff' : '#ff6b6b' }));
+      items.push(icon(s, -24, -2, red ? 'ui_economy_star_01_red' : 'ui_economy_star_01_yellow', 38, red ? 'ic_redstar' : 'ic_star'));
+      items.push(text(s, 18, -2, String(red ? card.redStars : card.stars), 44, { color: ok ? '#ffffff' : '#ffd0d0' }));
     }
-    return s.add.container(W / 2 - bw / 2 - 18 * U, -H / 2 + bh / 2 + 18 * U, items);
+    return s.add.container(0, BTN.y, items);
   }
 
   private makeCard(card: Card, i: number, ok: boolean): CardObj {
     const s = this.scene;
     const evo = card.kind === 'evo';
-    const fs = 187 * U;
-    const textX = -181 * U;
+    const [cardColor, frameColor, tagColor] = look(card);
+    const top = -H / 2;
     const items: Phaser.GameObjects.GameObject[] = [
-      ...bannerCard(s, W, H),
-      skillFrame(s, -W / 2 + 116 * U, -20.8 * U, fs, evo ? 'red' : 'blue', card.def.icon),
-      evo ? gems(s, -308.9 * U, 100.5 * U, 1, 1) : gems(s, -308.9 * U, 100.5 * U, card.level, MAX_LEVEL),
-      text(s, textX, -70.7 * U, cardName(card), 50, { originX: 0, align: 'left' }),
-      text(s, textX, 38 * U, cardDesc(card), 32, { originX: 0, align: 'left', color: '#b8b9d7', line: 'none', wrap: 560 * U }),
+      ...cardFrame(s, W, H, cardColor),
+      skillFrame(s, 0, top + 149 * U, 154 * U, frameColor, card.def.icon),
+      text(s, 0, -25.2 * U, cardName(card), 33, { line: 'none', color: INK.dark, wrap: W - 50 * U }),
+      text(s, 0, 70 * U, cardDesc(card), 24, { line: 'none', color: INK.label, wrap: W - 60 * U }),
+      evo ? gems(s, 0, H / 2 - 70.3 * U, 1, 1) : gems(s, 0, H / 2 - 70.3 * U, card.level, MAX_LEVEL),
+      tag(s, 0, top + 8.5 * U, evo ? strings.evolve : strings.level(card.level), tagColor),
     ];
     const btn = this.priceButton(card, ok);
     items.push(btn);
-    if (evo) items.push(text(s, -W / 2 + 116 * U, -H / 2 - 4, strings.evolve, 30, { line: 'red', color: config.palette.gold }));
-    const c = s.add.container(config.layout.width / 2, YS[i], items);
+    const c = s.add.container(XS[i], CARD_Y, items);
     if (!ok) c.setAlpha(0.8);
-    c.setSize(W, H).setInteractive({ useHandCursor: ok });
+    c.setSize(W, H + BTN.h * 2).setInteractive({ useHandCursor: ok });
     const obj: CardObj = { c, btn, card, ok, i, shakeT: 1 };
     c.on('pointerdown', () => {
       if (this.picked < 0 && ok) c.setScale(0.96);
@@ -130,7 +142,7 @@ export class CardPicker {
   private makeSkip(): Phaser.GameObjects.Container {
     const c = button(this.scene, {
       x: config.layout.width / 2,
-      y: YS[2] + H / 2 + 90,
+      y: 640 + 709 * U,
       color: 'gray',
       label: strings.skip,
       onTap: () => {
@@ -160,26 +172,25 @@ export class CardPicker {
     if (!this.root.visible) return;
     this.t += dt;
     const L = config.layout;
-    const cx = L.width / 2;
     this.title.setScale(Math.min(1, easeOutBack(Math.min(1, this.t / 0.3))));
     this.wallet.setAlpha(Math.min(1, this.t / 0.3));
     const done = this.picked >= 0 || this.skipping;
     for (const card of this.cards) {
-      const y0 = YS[card.i];
+      const x0 = XS[card.i];
       const enter = Math.max(0, Math.min(1, (this.t - card.i * config.cards.stagger) / 0.35));
       card.shakeT += dt;
       card.btn.setAngle(card.shakeT < 0.3 ? Math.sin(card.shakeT * 60) * 8 * (1 - card.shakeT / 0.3) : 0);
       if (!done) {
-        // slide in from the right, one after the other
-        card.c.setPosition(cx + (1 - easeOutBack(enter)) * 700, y0).setAlpha(enter * (card.ok ? 1 : 0.8));
+        // rise in from below, one after the other
+        card.c.setPosition(x0, CARD_Y + (1 - easeOutBack(enter)) * 700).setAlpha(enter * (card.ok ? 1 : 0.8));
         continue;
       }
       const k = Math.min(1, this.pickT / 0.6);
       if (card.i === this.picked) {
         // fly to the hero and shrink
         const e = easeInQuad(k);
-        card.c.setPosition(cx + (L.heroX - cx) * e, y0 + (L.heroY - y0) * e - Math.sin(k * Math.PI) * 120).setScale(1 + 0.1 * Math.sin(k * Math.PI) - 0.9 * e);
-      } else card.c.setX(cx + easeInQuad(k) * 800 * (card.i % 2 === 0 ? 1 : -1));
+        card.c.setPosition(x0 + (L.heroX - x0) * e, CARD_Y + (L.heroY - CARD_Y) * e - Math.sin(k * Math.PI) * 120).setScale(1 + 0.1 * Math.sin(k * Math.PI) - 0.9 * e);
+      } else card.c.setY(CARD_Y + easeInQuad(k) * 900);
     }
     if (!done) return;
     this.pickT += dt;

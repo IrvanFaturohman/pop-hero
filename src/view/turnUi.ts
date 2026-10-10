@@ -63,7 +63,7 @@ export class TurnUi {
     this.pill.setY(phase === 'blow' ? config.layout.roomBottom - 8 : 310);
     const pw = this.label.width + 48;
     this.bg.destroy();
-    this.bg = sprite(this.pill.scene, 'ui_resourcebar_single_bg', 0, 0, pw, 54, 0x1e1d26);
+    this.bg = sprite(this.pill.scene, 'ui_resourcebar_bg', 0, 0, pw, 54, 0x1e1e1f, 0.75);
     this.pill.addAt(this.bg, 0);
     this.pill.setVisible(true);
     this.popT = 0;

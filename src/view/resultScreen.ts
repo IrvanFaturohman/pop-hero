@@ -1,13 +1,14 @@
-// End-of-run screen in the pack's PopupDim_Play_Result_Victory / Defeat layout: badge art with a
-// rotating glow, VICTORY (sky ribbon) or DEFEAT (red ribbon), REWARDS divider with the coin tile,
-// a compact run-stats card, CONTINUE (to the home screen) and COPY STATS.
+// End-of-run screen in the pack's Play_Result_Win_01 / Play_Result_Lose layout: the victory
+// illustration on a soft glow with the tangerine VICTORY ribbon (or the defeat illustration with a
+// GAME OVER ribbon), the "REWARDS" line title with the coin tile, a compact run-stats card,
+// CONTINUE (to the home screen) and COPY STATS.
 import Phaser from 'phaser';
 import { abilities, evolutions } from '../abilities';
 import { config } from '../config';
 import { easeOutBack } from '../juice/ease';
 import type { RunStats } from '../logic/telemetry';
 import { strings } from '../strings';
-import { U, button, dim, dividerTitle, itemFrame, sprite, text } from './gui';
+import { U, button, dim, dividerTitle, fill, itemFrame, ribbon, sprite, text } from './gui';
 
 function fmtTime(sec: number): string {
   const m = Math.floor(sec / 60);
@@ -47,18 +48,19 @@ export class ResultScreen {
     const won = stats.result === 'victory';
     const items: Phaser.GameObjects.GameObject[] = [dim(s)];
     if (won) {
-      this.glow = sprite(s, 'ui_image_effect_rotate', cx, Y(437), 270 * U * 1.6, 275 * U * 1.6, 0xfffa77);
-      items.push(this.glow, sprite(s, 'ui_image_bagde_wing1', cx, Y(533.8), 536 * U, 449 * U), sprite(s, 'ui_image_bagde_wing2', cx, Y(451.4), 296 * U, 228 * U));
-      items.push(s.add.container(cx, Y(291), [sprite(s, 'ui_title_ribbon01_sky', 0, 0, 690 * U, 143 * U, s.textures.exists('ui_title_ribbon01_sky') ? undefined : 0x1fb8ff), text(s, 0, -11 * U, strings.stageClear, 67, { line: 'blue' })]));
+      if (s.textures.exists('ui_sampleeffect_confetti')) items.push(sprite(s, 'ui_sampleeffect_confetti', cx, 757.7 * U, 1058 * U, 1487 * U));
+      this.glow = sprite(s, 'ui_effect_light_01_512', cx, Y(448), 512 * U * 1.3, 512 * U * 1.3, 0xffff5f, 0.3);
+      items.push(this.glow, sprite(s, 'ui_illust_victory', cx, Y(448), 670 * U, 271 * U));
+      items.push(ribbon(s, cx, Y(296.5), 656 * U, 'tangerine', strings.stageClear, 55));
     } else {
       this.glow = null;
-      items.push(sprite(s, 'ui_image_badge_skull', cx - 8.6 * U, Y(521.1), 562 * U, 329 * U));
-      items.push(s.add.container(cx, Y(291), [sprite(s, 'ui_title_ribbon04_red', 0, 0, 690 * U, 143 * U, s.textures.exists('ui_title_ribbon04_red') ? undefined : 0xff3b5c), text(s, 0, -11 * U, strings.gameOver, 67, { line: 'red' })]));
+      items.push(sprite(s, 'ui_illust_lose', cx, Y(472), 406 * U, 236 * U));
+      items.push(ribbon(s, cx, Y(296.5), 656 * U, 'lightdark', strings.gameOver, 55));
     }
-    items.push(dividerTitle(s, cx, Y(11), strings.rewards, 1, 40));
-    items.push(itemFrame(s, cx, Y(-150), 190 * U, 'white', 'ui_itemicon_money_coin', String(coins), 'ic_coin'));
+    items.push(dividerTitle(s, cx, Y(170), strings.rewards));
+    items.push(itemFrame(s, cx, Y(30), 151 * U, 'dark', 'ui_economy_coin_02_gold', String(coins), 'ic_coin'));
 
-    // compact run stats (our addition: the pack's result screen has none)
+    // compact run stats (our addition: the pack's result screen has none), on the teal list frame
     const names = stats.upgrades.map((key) => {
       const [id, lv] = key.split(':');
       if (id === 'evo') return evolutions.find((e) => e.id === lv)?.name ?? lv;
@@ -73,31 +75,35 @@ export class ResultScreen {
       [strings.statStars, `${stats.starsCollected.stars} / ${stats.starsCollected.redStars}`],
     ];
     if (!won && stats.causeOfDefeat) rows.push([strings.statCause, stats.causeOfDefeat.toUpperCase()]);
-    const top = Y(-300);
-    const rowH = 34;
-    const boxH = rows.length * rowH + 70;
-    const bw = 900 * U;
-    items.push(sprite(s, 'ui_borderframe_round20_white_bg', cx, top + boxH / 2, bw, boxH, 0x343549));
-    items.push(sprite(s, 'ui_borderframe_round20_white_light', cx, top + 12, bw - 11 * U, 12 * U, 0xffffff, 0.12));
+    const top = Y(-120);
+    const rowH = 32;
+    const boxH = rows.length * rowH + 84;
+    const bw = 912 * U;
+    const box = s.add.container(cx, top + boxH / 2, [
+      fill(s, 'ui_basicframe_rectangle_01-04_bg', bw, boxH, 0x4e6772, { dw: -2, dh: -2 }),
+      fill(s, 'ui_basicframe_rectangle_01-04_innerborder2', bw, boxH, 0x425760, { dw: -26, dh: -26 }),
+      fill(s, 'ui_basicframe_rectangle_01-04_border1', bw, boxH, 0x000000),
+    ]);
+    items.push(box);
     rows.forEach(([k, v], i) => {
-      const y = top + 26 + i * rowH;
-      items.push(text(s, cx - bw / 2 + 26, y, k, 30, { originX: 0, align: 'left', color: '#b8b9d7', line: 'none' }), text(s, cx + bw / 2 - 26, y, v, 32, { originX: 1, align: 'right', font: 'cairo' }));
+      const y = top + 30 + i * rowH;
+      items.push(text(s, cx - bw / 2 + 30, y, k, 30, { originX: 0, align: 'left', color: '#c6eaf6', line: 'none' }), text(s, cx + bw / 2 - 30, y, v, 32, { originX: 1, align: 'right' }));
     });
-    items.push(text(s, cx, top + rows.length * rowH + 40, names.length ? names.join(', ') : strings.statNoUpgrades, 28, { color: config.palette.gold, wrap: bw - 40, line: 'none' }));
+    items.push(text(s, cx, top + rows.length * rowH + 44, names.length ? names.join(', ') : strings.statNoUpgrades, 28, { color: config.palette.gold, wrap: bw - 50, line: 'none' }));
 
     const tap = (fn: () => void) => () => {
       this.onTap();
       fn();
     };
-    const by = Math.max(Y(-644), top + boxH + 70);
-    items.push(button(s, { x: cx - 120, y: by, w: 300 * U, color: 'sky', label: strings.continue, onTap: tap(() => this.onContinue()) }));
+    const by = Math.max(Y(-570), top + boxH + 60);
+    items.push(button(s, { x: cx - 112, y: by, w: 325 * U, color: 'blue', label: strings.continue, onTap: tap(() => this.onContinue()) }));
     const copy = button(s, {
-      x: cx + 120,
+      x: cx + 112,
       y: by,
-      w: 300 * U,
-      color: 'darkgray',
+      w: 325 * U,
+      color: 'dark',
       label: strings.copyStats,
-      size: 34,
+      size: 36,
       onTap: tap(() => {
         const json = JSON.stringify(stats, null, 2);
         navigator.clipboard?.writeText(json).catch(() => {});

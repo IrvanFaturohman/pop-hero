@@ -8,7 +8,7 @@ import { MAX_BULLETS, type Battle } from '../logic/battle';
 import { TAU, lerp } from '../logic/math';
 import { powerIconKey } from './gui';
 import { Rig } from './rig';
-import { fontFamily, fontWeight } from './gui';
+import { FONT, FONT_WEIGHT } from './gui';
 
 const BAR_W = 96;
 const BAR_H = 14;
@@ -62,7 +62,7 @@ export class HeroView {
     this.blaster = scene.add.image(L.heroX + 16, L.heroY + 6, 'blaster').setOrigin(0.15, 0.55);
     this.muzzle = scene.add.image(0, 0, 'muzzle').setVisible(false);
     this.bars = scene.add.graphics();
-    const txt = (size: number) => ({ fontFamily: fontFamily('cairo'), fontSize: `${size}px`, fontStyle: fontWeight(), color: '#ffffff', stroke: config.palette.outline, strokeThickness: 6, resolution: textRes });
+    const txt = (size: number) => ({ fontFamily: FONT, fontSize: `${size}px`, fontStyle: FONT_WEIGHT, color: '#ffffff', stroke: config.palette.outline, strokeThickness: 6, resolution: textRes });
     this.hpText = scene.add.text(L.heroX, L.heroBarY - 1, '', txt(18)).setOrigin(0.5);
     this.ammoIcon = scene.add.image(L.ammoCounterX - 22, L.ammoCounterY, 'ball').setScale(1.1);
     this.ammoText = scene.add.text(L.ammoCounterX - 8, L.ammoCounterY, '0', txt(26)).setOrigin(0, 0.52);

@@ -1,7 +1,7 @@
 // Pooled floating text: damage numbers, CLOSE!, PERFECT!, -23, etc.
 import Phaser from 'phaser';
 import { easeOutBack, easeOutQuad } from './ease';
-import { fontFamily, fontWeight } from '../view/gui';
+import { FONT, FONT_WEIGHT } from '../view/gui';
 
 export type FloatStyle = 'damage' | 'pop' | 'loss' | 'bonus' | 'small';
 
@@ -28,7 +28,7 @@ export class FloatingText {
   constructor(scene: Phaser.Scene, layer: Phaser.GameObjects.Layer, max = 40) {
     for (let i = 0; i < max; i++) {
       const t = scene.add
-        .text(0, 0, '', { fontFamily: fontFamily('cairo'), fontSize: '48px', fontStyle: fontWeight(), color: '#ffffff', stroke: '#22163F', strokeThickness: 10 })
+        .text(0, 0, '', { fontFamily: FONT, fontSize: '48px', fontStyle: FONT_WEIGHT, color: '#ffffff', stroke: '#22163F', strokeThickness: 10 })
         .setOrigin(0.5)
         .setVisible(false);
       layer.add(t);

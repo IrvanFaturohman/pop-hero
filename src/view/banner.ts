@@ -1,5 +1,5 @@
 // Big center banners: "WAVE 1", "WAVE CLEAR", "BOSS", "STAGE CLEAR" / "DEFEATED", on the pack's
-// title ribbon (Title_Ribbon01, colored by the message).
+// title ribbon (Title_01_NoDeco, colored by the message).
 import Phaser from 'phaser';
 import { config } from '../config';
 import { easeOutBack } from '../juice/ease';
@@ -30,10 +30,10 @@ export class Banner {
     this.hold = hold;
     this.c.removeAll(true);
     const p = config.palette;
-    const rc: RibbonColor = color === p.danger ? 'red' : color === p.gold ? 'yellow' : color === '#FF9F1C' ? 'orange' : color === '#3DDC84' ? 'green' : 'sky';
+    const rc: RibbonColor = color === p.danger ? 'red' : color === p.gold ? 'yellow' : color === '#FF9F1C' ? 'tangerine' : color === '#3DDC84' ? 'green' : 'sky';
     // measure the label to size the ribbon around it
     const probe = text(this.scene, 0, 0, msg, SIZE);
-    const w = probe.width + 300 * U;
+    const w = probe.width + 260 * U;
     probe.destroy();
     this.c.add(ribbon(this.scene, 0, 0, w, rc, msg, SIZE));
     this.fit = Math.min(1, (config.layout.width - 16) / w);

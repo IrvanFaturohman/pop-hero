@@ -5,7 +5,7 @@ import Phaser from 'phaser';
 import { config, hex } from '../config';
 import { easeInQuad, easeOutBack, easeOutQuad } from '../juice/ease';
 import { lerp } from '../logic/math';
-import { fontFamily, fontWeight } from './gui';
+import { FONT, FONT_WEIGHT } from './gui';
 
 const BODY_W = 84;
 const BODY_H = 62;
@@ -46,7 +46,7 @@ export class LockView {
     body.fillStyle(0xffffff, 0.4);
     body.fillRoundedRect(-BODY_W / 2 + 6, -BODY_H / 2 + 5, BODY_W - 12, 8, 4);
     this.text = scene.add
-      .text(0, 4, '0', { fontFamily: fontFamily('cairo'), fontSize: '36px', fontStyle: fontWeight(), color: '#ffffff', stroke: config.palette.outline, strokeThickness: 8, resolution: textRes })
+      .text(0, 4, '0', { fontFamily: FONT, fontSize: '36px', fontStyle: FONT_WEIGHT, color: '#ffffff', stroke: config.palette.outline, strokeThickness: 8, resolution: textRes })
       .setOrigin(0.5);
     this.c = scene.add.container(config.layout.width / 2, config.layout.ropeY + BODY_H / 2 + 6, [this.shackle, body, this.text]);
     this.c.setVisible(false);

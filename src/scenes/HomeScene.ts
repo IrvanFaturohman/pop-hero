@@ -1,7 +1,8 @@
-// Home screen in the pack's Lobby layout (reference flow, without energy): top bar with the coin
-// pill, the chapter banner, the chapter boss on its shadow, the tapered START button, and the bottom
-// menu bar (BATTLE / UPGRADES; the other slots are locked). After the first finished run a
-// "NEW FEATURE!" popup unlocks UPGRADES and a hand points at the tab until it is opened.
+// Home screen in the pack's Lobby_Default layout (reference flow, without energy): the coin
+// resource bar, "CHAPTER 1" over the blue line deco with the stage name under it, the chapter boss
+// on its shadow, the big red START button, and the bottom tab bar (BATTLE / UPGRADES; the other
+// slots are locked). After the first finished run a "NEW FEATURE!" popup unlocks UPGRADES and a
+// hand points at the tab until it is opened.
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
 import { config } from '../config';
@@ -10,17 +11,17 @@ import type { MetaState } from '../logic/meta';
 import { loadMeta, saveMeta } from '../storage';
 import { strings } from '../strings';
 import { ArenaView } from '../view/arenaView';
-import { ResourcePill, U, button, dim, icon, playButton, popup, sprite, text } from '../view/gui';
+import { INK, ResourcePill, U, button, dim, icon, playButton, popup, sprite, text } from '../view/gui';
+import { tabBody } from '../view/guiCards';
 import { pressable } from '../view/hud';
 import { Rig } from '../view/rig';
 import { UpgradesPanel } from '../view/upgradesPanel';
 
-/** Lobby bottom bar: 179.7 canvas units tall, five equal slots. */
-const NAV_H = 179.7 * U;
+/** Lobby bottom bar (Tab_01_BottomFlushMenu): 162 canvas units tall, five equal tabs. */
+const NAV_H = 162 * U;
 const NAV_Y = 1280 - NAV_H / 2;
 const SLOT_W = 720 / 5;
 const SLOTS = [0, 1, 2, 3, 4].map((i) => SLOT_W * (i + 0.5));
-const TOP_H = 117.7 * U;
 
 type Tab = 'battle' | 'upgrades';
 
@@ -61,9 +62,8 @@ export class HomeScene extends Phaser.Scene {
     shade.fillGradientStyle(0x0e3a3c, 0x0e3a3c, 0x120a2e, 0x120a2e, 0.2, 0.2, 0.8, 0.8);
     shade.fillRect(-200, -400, L.width + 400, L.height + 800);
 
-    // top bar: a solid band with the coin pill (Lobby Topbar)
-    this.add.rectangle(L.width / 2, TOP_H / 2 - 200, L.width + 400, TOP_H + 400, 0x424fcc);
-    this.coins = new ResourcePill(this, 38 + (227 * U) / 2, TOP_H / 2, 227 * U, 'ui_resourcebar_single_icon_coin', 'ic_coin');
+    // coin resource bar, top-left (ResourceBar_Group)
+    this.coins = new ResourcePill(this, 151 * U, 54 * U, 250 * U, 'ui_resourcebar_icon_gold', 'ic_coin');
     this.coins.set(String(this.meta.coins));
 
     this.battleTab = this.makeBattleTab();
@@ -81,28 +81,25 @@ export class HomeScene extends Phaser.Scene {
     this.cameras.main.fadeIn(220, 0, 0, 0);
   }
 
-  /** Chapter banner (dark BannerFrame), the chapter boss on a soft shadow, its name, START. */
+  /** Chapter line title, stage name, the chapter boss on a soft shadow, its name, START. */
   private makeBattleTab(): Phaser.GameObjects.Container {
     const L = config.layout;
     const cx = L.width / 2;
-    const bw = 1010 * U;
-    const bh = 117 * U;
-    const by = TOP_H + 30 + bh / 2;
     const items: Phaser.GameObjects.GameObject[] = [
-      sprite(this, 'ui_bannerframe00_04-06_bg', cx, by, bw - 4 * U, bh - 4 * U, 0x343549),
-      sprite(this, 'ui_bannerframe00_04-06_border', cx, by, bw, bh, 0x000000),
-      text(this, cx - bw / 2 + 30, by - 2, strings.chapter(1, stage1.name.toUpperCase()), 44, { originX: 0, align: 'left' }),
+      sprite(this, 'ui_title_linedeco_01_l_white', cx, 365.5 * U + 39 * U, 448 * U, 39 * U, 0x1d91bb),
+      text(this, cx, 365.5 * U - 19 * U, strings.chapter(1), 40),
+      text(this, cx, 470.5 * U, stage1.name.toUpperCase(), 66),
     ];
     if (this.meta.bestWave > 0) {
-      items.push(icon(this, cx + bw / 2 - 150, by, 'ui_itemicon_trophy_gold', 64), text(this, cx + bw / 2 - 30, by - 2, `${this.meta.bestWave}/${stage1.waves.length}`, 46, { font: 'cairo', originX: 1 }));
+      items.push(icon(this, cx - 44, 560 * U, 'ui_ui_rewards_trophy_01_gold', 52), text(this, cx + 6, 560 * U, `${this.meta.bestWave}/${stage1.waves.length}`, 44, { originX: 0, align: 'left' }));
     }
-    const groundY = 700;
-    items.push(sprite(this, 'ui_image_oval', cx, groundY, 420, 110, 0x000000, 0.2));
+    const groundY = 720;
+    items.push(sprite(this, 'ui_image_deco_oval', cx, groundY, 420, 110, 0x000000, 0.25));
     this.boss = Rig.create(this, 'mole');
     if (this.boss) items.push(this.boss.face(-1).setPosition(cx, groundY + 10).c);
-    else items.push(icon(this, cx, groundY - 80, 'ui_itemicon_skull', 160));
-    items.push(text(this, cx, groundY + 80, strings.bossNames.mole, 64));
-    this.startBtn = playButton(this, cx, 930, strings.start, () => {
+    else items.push(icon(this, cx, groundY - 80, 'ui_ui_play_skull_01', 160));
+    items.push(text(this, cx, groundY + 70, strings.bossNames.mole, 56));
+    this.startBtn = playButton(this, cx, 640 + 456 * U, strings.start, () => {
       sfx.ui_tap();
       this.start();
     });
@@ -110,16 +107,16 @@ export class HomeScene extends Phaser.Scene {
     return this.add.container(0, 0, items);
   }
 
-  /** Bottom menu bar (Menu_BottomBtn): locked slots, BATTLE, UPGRADES (locked until the first run). */
+  /** Bottom tab bar (Tab_01): locked slots, BATTLE, UPGRADES (locked until the first run). */
   private makeNav(): void {
     const L = config.layout;
-    // Menu_BottomBtn_Bg is a black sprite tinted #1e2440 in the prefab: a plain fill reads the same
-    this.add.rectangle(L.width / 2, NAV_Y + 200, L.width + 400, NAV_H + 400, 0x1e2440);
+    // the bar runs past the canvas edges on tall screens
+    this.add.rectangle(L.width / 2, NAV_Y + 200, L.width + 400, NAV_H + 400, 0x415760);
     this.navLayer = this.add.container(0, 0);
     SLOTS.forEach((x, i) => {
-      if (i === 2) this.navButton(x, 'battle', strings.battle, 'ui_itemicon_battle');
-      else if (i === 3 && this.meta.upgradesUnlocked) this.navButton(x, 'upgrades', strings.upgrades, 'ui_itemicon_gear_armor_top');
-      else icon(this, x, NAV_Y, 'ui_icon_lock01_s', 52).setAlpha(0.45);
+      if (i === 2) this.navButton(x, 'battle', strings.battle, 'ui_ui_play_battle_01_color');
+      else if (i === 3 && this.meta.upgradesUnlocked) this.navButton(x, 'upgrades', strings.upgrades, 'ui_gear_helmet_04');
+      else this.navLayer.add(this.add.container(x, NAV_Y, [...tabBody(this, SLOT_W, NAV_H, false), icon(this, 0, 0, 'ui_ui_common_lock_01_silver', 60).setAlpha(0.6)]));
     });
   }
 
@@ -135,19 +132,14 @@ export class HomeScene extends Phaser.Scene {
     c.setData('label', label).setData('icon', iconKey);
   }
 
-  /** The focused slot rises (TabFocus + light, icon up, label); the others show just the icon. */
+  /** The focused tab rises and lightens (icon up, label); the others show just the icon. */
   private drawNav(): void {
     for (const [tab, c] of this.navItems) {
       c.removeAll(true);
       const focus = tab === this.tab;
-      if (focus) {
-        c.add([
-          sprite(this, 'ui_menu_bottombtn_tabfocus', 0, -5, SLOT_W + 6, 189 * U, 0x4452d5),
-          sprite(this, 'ui_menu_bottombtn_tabfocus_light', 0, -7, SLOT_W - 2, 184 * U, 0x6d85fd),
-          icon(this, 0, -34 * U - 6, c.getData('icon'), 104 * U),
-          text(this, 0, 46 * U - 4, c.getData('label'), 32),
-        ]);
-      } else c.add(icon(this, 0, 8 * U, c.getData('icon'), 96 * U));
+      c.add(tabBody(this, SLOT_W, NAV_H, focus));
+      if (focus) c.add([icon(this, 0, -26 * U, c.getData('icon'), 128 * 1.2 * U * 0.75), text(this, 0, NAV_H / 2 - 29.8 * U, c.getData('label'), 30)]);
+      else c.add(icon(this, 0, 0, c.getData('icon'), 128 * U * 0.75));
     }
   }
 
@@ -165,21 +157,22 @@ export class HomeScene extends Phaser.Scene {
   /** "NEW FEATURE!" popup, tap to continue, then a hand points at the UPGRADES tab. */
   private showPopup(): void {
     const L = config.layout;
-    const box = popup(this, L.width / 2, 600, 900 * U, 700 * U, strings.newFeature);
-    box.add([icon(this, 0, -30, 'ui_itemicon_gear_armor_top', 150), text(this, 0, 90, strings.unlockedUpgrades, 46, { color: config.palette.gold })]);
+    const box = popup(this, L.width / 2, 600, 865 * U, 700 * U, strings.newFeature);
+    box.add([icon(this, 0, -40, 'ui_gear_helmet_04', 150), text(this, 0, 70, strings.unlockedUpgrades, 46, { line: 'none', color: INK.label })]);
     const close = (): void => {
       this.popupC?.destroy();
       this.popupC = null;
       this.meta.upgradesSeen = true;
       saveMeta(this.meta);
-      const gloved = this.textures.exists('ui_tutorial_hand_2');
-      this.handY = NAV_Y - 70;
+      const gloved = this.textures.exists('ui_tutorialhand_01');
+      this.handY = NAV_Y - 50;
+      // TutorialHand_01 points up: pivot on the fingertip and turn it over to point at the tab
       this.hand = gloved
-        ? this.add.image(SLOTS[3] + 10, this.handY, 'ui_tutorial_hand_2').setOrigin(0.18, 0.16).setDisplaySize(118, 118).setAngle(208)
+        ? this.add.image(SLOTS[3], this.handY, 'ui_tutorialhand_01').setOrigin(0.31, 0.03).setDisplaySize(98, 128).setAngle(180)
         : this.add.image(SLOTS[3] + 30, NAV_Y - 110, 'hand').setAngle(180);
       if (!gloved) this.handY = NAV_Y - 110;
     };
-    const ok = button(this, { x: 0, y: 700 * U * 0.5 - 90 * U, color: 'sky', label: 'OK', onTap: close });
+    const ok = button(this, { x: 0, y: 700 * U * 0.5 - 120 * U, color: 'blue', label: 'OK', onTap: close });
     box.add(ok);
     const shade = dim(this);
     // ignore the release of the press that opened the home screen

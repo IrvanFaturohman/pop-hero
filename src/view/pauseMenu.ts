@@ -1,12 +1,12 @@
-// Pause menu in the pack's Settings popup layout: blue top-bar popup "PAUSED", one row per setting
-// (icon, label, on/off switch), RESUME / RESTART / HOME buttons, and the round close button under
-// the popup (= resume). HOME leaves the run without rewards. Settings persist.
+// Pause menu in the pack's Settings popup layout: cream popup with the brown "PAUSED" title, one row
+// per setting (brown icon, label, on/off switch), RESUME / RESTART / HOME buttons, and the red
+// close button under the popup (= resume). HOME leaves the run without rewards. Settings persist.
 import Phaser from 'phaser';
 import { synth } from '../audio/synth';
 import { config } from '../config';
 import { saveSettings } from '../storage';
 import { strings } from '../strings';
-import { U, button, closeButton, dim, icon, popup, switchToggle, text } from './gui';
+import { INK, U, button, closeButton, dim, icon, popup, switchToggle, text } from './gui';
 import { pressable } from './hud';
 
 interface Toggle {
@@ -16,12 +16,12 @@ interface Toggle {
   set(v: boolean): void;
 }
 
-/** Popup08_Topbar_Divided is 978 x 1288 canvas units; rows follow the Settings list spacing. */
-const PW = 978 * U;
-const PH = 1080 * U;
-const CY = 600;
-const ROW0 = -PH / 2 + 110 * U + 95 * U;
-const ROW_DY = 128 * U;
+/** The Settings popup is 865 canvas units wide; rows follow its list spacing (120 apart). */
+const PW = 865 * U;
+const PH = 1000 * U;
+const CY = 640 + 21.5 * U;
+const ROW0 = -PH / 2 + 175 * U;
+const ROW_DY = 120 * U;
 
 export class PauseMenu {
   private root: Phaser.GameObjects.Container;
@@ -38,26 +38,27 @@ export class PauseMenu {
     _textRes: number,
   ) {
     const L = config.layout;
-    const box = popup(scene, L.width / 2, CY, PW, PH, strings.paused, 'ui_icon_setting');
+    const box = popup(scene, L.width / 2, CY, PW, PH, strings.paused);
     const tap = (fn: () => void) => () => {
       this.onTap();
       fn();
     };
     this.toggles = [
-      { label: strings.sound, icon: 'ui_icon_megaphone', get: () => !config.audio.muted, set: (v) => ((config.audio.muted = !v), synth.applyVolume()) },
-      { label: strings.music, icon: 'ui_icon_music', get: () => config.audio.musicOn, set: (v) => (config.audio.musicOn = v) },
-      { label: strings.haptics, icon: 'ui_icon_phone', get: () => config.haptics.enabled, set: (v) => (config.haptics.enabled = v) },
-      { label: strings.reducedMotion, icon: 'ui_icon_bell', get: () => config.juice.reducedMotion, set: (v) => (config.juice.reducedMotion = v) },
+      { label: strings.sound, icon: 'ui_sound', get: () => !config.audio.muted, set: (v) => ((config.audio.muted = !v), synth.applyVolume()) },
+      { label: strings.music, icon: 'ui_music', get: () => config.audio.musicOn, set: (v) => (config.audio.musicOn = v) },
+      { label: strings.haptics, icon: 'ui_vibration', get: () => config.haptics.enabled, set: (v) => (config.haptics.enabled = v) },
+      { label: strings.reducedMotion, icon: 'ui_swirl', get: () => config.juice.reducedMotion, set: (v) => (config.juice.reducedMotion = v) },
     ];
     this.rows = scene.add.container(0, 0);
     box.add(this.rows);
-    const bw = 380 * U;
+    const bw = 322 * U;
+    const gap = 47 * U;
     box.add([
-      button(scene, { x: 0, y: PH / 2 - 287 * U - 30 * U, w: 2 * bw + 34 * U, h: 124 * U, color: 'green', label: strings.resume, size: 46, onTap: tap(() => this.onResume()) }),
-      button(scene, { x: -bw / 2 - 17 * U, y: PH / 2 - 135 * U, w: bw, color: 'blue', label: strings.restart, onTap: tap(() => this.onRestart()) }),
-      button(scene, { x: bw / 2 + 17 * U, y: PH / 2 - 135 * U, w: bw, color: 'sky', label: strings.home, onTap: tap(() => this.onHome()) }),
+      button(scene, { x: 0, y: -PH / 2 + 700 * U, w: 2 * bw + gap, color: 'green', label: strings.resume, onTap: tap(() => this.onResume()) }),
+      button(scene, { x: -bw / 2 - gap / 2, y: -PH / 2 + 860 * U, w: bw, color: 'blue', label: strings.restart, onTap: tap(() => this.onRestart()) }),
+      button(scene, { x: bw / 2 + gap / 2, y: -PH / 2 + 860 * U, w: bw, color: 'orange', label: strings.home, onTap: tap(() => this.onHome()) }),
     ]);
-    this.root = scene.add.container(0, 0, [dim(scene), box, closeButton(scene, L.width / 2, CY + PH / 2 + 80, tap(() => this.onResume()))]).setVisible(false);
+    this.root = scene.add.container(0, 0, [dim(scene), box, closeButton(scene, L.width / 2, CY + PH / 2 + 90 * U, tap(() => this.onResume()))]).setVisible(false);
     layer.add(this.root);
   }
 
@@ -77,8 +78,8 @@ export class PauseMenu {
     this.toggles.forEach((tg, i) => {
       const y = ROW0 + i * ROW_DY;
       const on = tg.get();
-      const sw = switchToggle(this.scene, 273 * U, 0, on, [strings.on, strings.off]);
-      sw.setSize(260 * U, 88 * U).setInteractive({ useHandCursor: true });
+      const sw = switchToggle(this.scene, 229 * U, 0, on, [strings.on, strings.off]);
+      sw.setSize(210 * U, 85 * U).setInteractive({ useHandCursor: true });
       pressable(sw, () => {
         this.onTap();
         tg.set(!tg.get());
@@ -86,7 +87,8 @@ export class PauseMenu {
         // rebuild after the tap handler returns (the switch is still in use inside it)
         this.scene.time.delayedCall(0, () => this.refresh());
       });
-      const row = this.scene.add.container(0, y, [icon(this.scene, -380 * U, 4 * U, tg.icon, 58 * U), text(this.scene, -330 * U, 0, `${tg.label} :`, 38, { originX: 0, align: 'left' }), sw]);
+      const ic = icon(this.scene, -320 * U, 0, tg.icon, 64 * U).setTint(Number.parseInt(INK.label.slice(1), 16));
+      const row = this.scene.add.container(0, y, [ic, text(this.scene, -270 * U, 0, tg.label, 40, { originX: 0, align: 'left', line: 'none', color: INK.label }), sw]);
       this.rows.add(row);
     });
   }
