@@ -6,11 +6,11 @@ Prototype web untuk menguji core loop "tiup balon → peluru hero", gabungan gay
 
 ## Cara main
 
-1. **Giliranmu (ruang balon, bawah)**: tekan & tahan di ruang abu-abu → balon muncul di jarimu dan membesar (angka = peluru). Geser untuk menghindari bola berduri; **kena duri saat ditiup = meletus**. Lepas → balon terbang (sudah kebal duri) dan mendorong **rantai emas**.
-2. **Gembok**: angka di gembok = total yang harus dicapai balon-balonmu giliran ini (balon sebanyak yang perlu; balon yang meletus hanya membuang waktu). Tercapai → **rantai putus**, balon lolos ke atas, pecah jadi bola peluru untuk hero. Ikon di samping gembok = 3 balon berikutnya.
+1. **Giliranmu (ruang balon, bawah)**: tekan & tahan di ruang abu-abu → balon muncul di jarimu dan membesar (bola di dalamnya = peluru). Geser untuk menghindari bola berduri; **kena duri = meletus**, saat ditiup maupun saat terbang. Lepas → balon terbang lurus ke atas (lewati power-up untuk mengambilnya) dan mendorong **rantai emas**; balon yang sudah di rantai aman.
+2. **Gembok**: angka di gembok = total yang harus dicapai balon-balonmu giliran ini (balon sebanyak yang perlu; balon yang meletus hanya membuang waktu). Tercapai → **rantai putus**, balon lolos ke atas, pecah jadi bola peluru untuk hero.
 3. **Hero menembak** semua peluru (FIRE!), lalu **giliran musuh**: semua musuh menyerang hero, musuh baru masuk. Kalau musuh di layar habis, sisa peluru disimpan untuk giliran berikutnya.
-4. Gelombang bersih → **sisa peluru jadi HP** (1 peluru = 3 HP) → pilih **1 dari 3 kartu kemampuan**. Tiap kemampuan punya 3 level: level 1 gratis, level 2 = 1★, level 3 = 3★. Setelah level 3 bisa muncul kartu **evolusi merah** (bayar ★ merah). Bintang didapat dari **balon bintang** (emas = ★, putih = ★ merah). Mulai gelombang 2 ada balon spesial: api (membakar), es (membekukan, musuh lewat 1 serangan), bom (ledakan area), heal (pulihkan HP).
-5. **10 gelombang**: elite **Rat King** di gelombang 5, boss **Digger Mole** di gelombang 10. Si Mole menggali cakar ke ruang balon tiap giliran (balon yang ditiup meletus kalau kena).
+4. Gelombang bersih → **sisa peluru terbawa ke gelombang berikutnya** → pilih **1 dari 3 kartu kemampuan**. Tiap kemampuan punya 3 level: level 1 gratis, level 2 = 1★, level 3 = 3★. Setelah level 3 bisa muncul kartu **evolusi merah** (bayar ★ merah). Bintang didapat dari **power-up bintang** (emas = ★, putih = ★ merah). Power-up melayang di ruang balon; balon yang terbang melewatinya membawa 1 peluru spesial: api (membakar), es (membekukan, musuh lewat 1 serangan), bom (ledakan area), heal (pulihkan HP).
+5. **10 gelombang**: elite **Slime King** di gelombang 5, boss **Magma King** di gelombang 10. Si Magma King menjulurkan cakar ke ruang balon tiap giliran (balon yang ditiup meletus kalau kena).
 6. Selesai run → **koin** → di **Home**, tab **UPGRADES** (terbuka setelah run pertama) membeli Damage / Health / Armor permanen. Pause → HOME untuk keluar run (tanpa hadiah).
 
 Desktop: klik-tahan mouse, atau **Space** (posisi mouse = tempat balon).
@@ -19,12 +19,17 @@ Desktop: klik-tahan mouse, atau **Space** (posisi mouse = tempat balon).
 
 ```bash
 npm install
+npm run layerlab       # salin art Layer Lab dari project Unity (lihat di bawah)
 npm run dev            # http://localhost:5173 (HMR, untuk ngoding)
 npm run build          # folder dist/ statis
 npx vite preview --host --port 5173   # sajikan dist/ ke jaringan (paling cepat di HP)
 ```
 
 **Tes di HP**: jalankan `npm run build` lalu `npx vite preview --host --port 5173`, buka alamat `Network:` (mis. `http://192.168.1.20:5173`) dari Chrome Android / Safari iOS di Wi-Fi yang sama. Mode dev (`npm run dev -- --host`) juga bisa, tapi mengirim ~20 MB (lambat di HP). Kalau halaman gagal dimuat, pesan error tampil di layar. iOS layar penuh: Share → Add to Home Screen.
+
+## Art Layer Lab
+
+Karakter, monster, dan UI memakai paket Layer Lab (2D Characters-MinimalCharacters, 2D Characters-CasualMonsters, GUI Pro-SuperCasual) dari project Unity `Pop-Hero`. `npm run layerlab` menyalin PNG yang dipakai ke `public/assets/layerlab/` dan menulis `manifest.json` (susunan bagian karakter dari prefab Unity, border 9-slice dari file `.meta`). Folder itu **di-gitignore**: aset berbayar tidak boleh ada mentah di repo publik, tapi tetap ikut di build/deploy. Lokasi default `../Pop-Hero/Assets/StorePackages/Layer Lab`; bisa diganti dengan argumen atau `LAYERLAB_DIR`. Tanpa folder itu game tetap jalan dengan art prosedural lama.
 
 ## Tuning
 

@@ -16,7 +16,7 @@ Sumber: youtube.com/watch?v=AxqvqGEy6BU (22 menit, 3 run: kalah di gelombang 5, 
 3. Hero menembakkan semua peluru (angka di bawah bar HP turun), angka damage muncul di atas musuh, musuh berkedip putih.
 4. Musuh yang sudah dekat menyerang hero, yang lain maju. Kembali ke mesin capit.
 - Tumpukan makin tipis tiap giliran; saat tinggal sedikit muncul **"BONUS"** dan tumpukan diisi ulang dengan kilau emas.
-- Sisa peluru tetap tersimpan antar gelombang (di Pop Hero sisa peluru jadi HP, keputusanmu, tetap dipakai).
+- Sisa peluru tetap tersimpan antar gelombang (Pop Hero sekarang juga begitu, M7; dulu sisa peluru jadi HP).
 
 **Isi tumpukan.** Bola putih = peluru; oranye = api; ungu = bom; kepingan salju cyan = es; hati merah = heal; **bintang kuning** = mata uang kartu; **bintang merah** = mata uang langka. Run pertama hanya putih + oranye + bintang; run berikutnya lebih beragam.
 
@@ -52,19 +52,25 @@ Sumber: youtube.com/watch?v=AxqvqGEy6BU (22 menit, 3 run: kalah di gelombang 5, 
 
 **Alur besar**: Title → **Home** (koin, chapter "1 WHISPER WOODS", START, tab UPGRADES) → run 10 gelombang → layar VICTORY/DEFEAT + koin → Home. Koin membeli upgrade permanen (Damage +1, Health +15, Armor +1 per level); tiap 10 level pangkat hero naik ("APPRENTICE n") dan dapat +100 koin. Tab UPGRADES terbuka setelah run pertama (popup "NEW FEATURE!"). Tidak ada energi (keputusanmu).
 
-**Satu giliran**: tiup balon di ruang Puff Up **sebanyak yang perlu** (tanpa batas 3 balon, keputusanmu 2026-10-09) → balon mendorong rantai, nilainya masuk ke gembok → gembok terpenuhi = rantai putus, balon pecah jadi peluru → hero menembak → semua musuh menyerang. Tidak ada giliran gagal lagi: balon yang meletus hanya membuang waktu (dan bintangnya). Sumber peluru tetap balon (keputusanmu), bukan capit.
+**Satu giliran**: tiup balon di ruang Puff Up **sebanyak yang perlu** (tanpa batas 3 balon, keputusanmu 2026-10-09), arahkan ke power-up, hindari duri saat meniup dan saat terbang → balon mendorong rantai, nilainya masuk ke gembok → gembok terpenuhi = rantai putus, balon pecah jadi peluru → hero menembak → semua musuh menyerang. Tidak ada giliran gagal lagi: balon yang meletus hanya membuang waktu (dan power-up yang dibawanya). Sumber peluru tetap balon (keputusanmu), bukan capit.
 
 **Satu run = 10 gelombang kecil** yang masuk sekaligus (seperti video): 1 tikus · 3 tikus · 2 tikus + babi · 3 babi · **elite Rat King** + 4 tikus · 2 babi + kelelawar · 4 tikus + beruang · 3 tikus + 2 babi + 2 kelelawar · 2 tikus + 2 babi + beruang + kelinci · **boss Digger Mole** + 3 tikus. Progress bar node di atas (hijau ✓, oranye = elite, tengkorak merah = boss). Kartu kemampuan setelah tiap gelombang kecuali yang terakhir.
 
 **Kartu kemampuan** (9 × 3 level): Multishot, Attack Damage, Bounce, Lifesteal, Balloon Power (pengganti "Claw Size"), Crit Chance, Crit Damage, Health Boost, Knockback. Level 1 gratis, level 2 = 1★, level 3 = 3★. Setelah level 3 bisa muncul **kartu evolusi merah** (1 ★ merah): Crit Chance → Execution (dari video), Bounce → Ricochet, Health Boost → Second Wind. Minimal satu kartu selalu bisa dibeli; kalau tidak ada, muncul SKIP. Kemampuan yang dimiliki tampil sebagai ikon berpermata di kiri atas.
 
-**Bintang**: balon bintang emas (+1★) dan balon putih berbintang merah (+1★ merah, mulai gelombang 4) ikut acak di antrean balon. Bintang ikut hilang kalau gembok gagal. Bintang hanya berlaku dalam satu run.
+**Power-up (M7, 2026-10-10)**: tiap giliran 2 power-up melayang di ruang balon (kebal duri). Arahkan balon: balon yang dilepas dan terbang melewatinya membawanya, maks 1 per balon. **1 power-up = 1 peluru spesial**, bukan mengubah semua peluru: api (burn), es (beku), bom (300 damage area), heal (+60 HP), bintang (+1★), bintang merah (+1★ merah, mulai gelombang 4). Ukuran balon menentukan jumlah peluru biasa, power-up menentukan efek. Terlihat di dalam balon (ikon + bola besar berwarna), terbang ke hero sebagai token besar, lalu menunggu di slot di samping angka amunisi; ditembak paling dulu.
 
-**Boss Digger Mole** (desain sendiri: tikus tanah berhelm tambang): tiap giliranmu ia menggali cakar dari dinding kiri/kanan ruang balon di ketinggian acak (bergantian sisi). Balon yang sedang ditiup meletus kalau kena cakar; balon yang dilepas memantul di sekitarnya; duri juga memantul. Slam tiap 2 giliran musuh (fase 2: tiap giliran, cakar lebih panjang), panggil 2 tikus tiap 3 giliran. Rat King di gelombang 5 sama seperti dulu (slam + panggil tikus + fase 2).
+**Bahaya terbang**: duri meletuskan balon yang sedang terbang; balon yang sudah tergabung di bawah rantai aman dan padat (duri memantul, kilau perisai cyan). Cakar Digger Mole memantulkan balon terbang dan tidak meletuskan balon yang tergabung.
 
-**Tembakan & peluru** (diukur dari video, M6.2): hero menembak satu per satu, ~2,8 tembakan/detik; balon penuh = 10 peluru; satu giliran ~10–18 peluru (video 9–15).
+**Bintang**: hanya dari power-up bintang. Bintang hanya berlaku dalam satu run.
 
-**Sisa peluru**: tetap jadi HP saat gelombang selesai (keputusanmu sebelumnya; di video sisa peluru terbawa). 1 peluru = 3 HP.
+**Art (M8, 2026-10-10)**: karakter, monster, dan UI dari paket Layer Lab (lihat CHANGELOG M8); elite = Slime King, boss = Magma King. Nama kode tetap `ratking` / `mole`. Belum dibahas: cakar boss di ruang balon masih gambar lama (cakar tikus tanah) dan kurang cocok dengan slime.
+
+**Boss Digger Mole** (sekarang tampil sebagai Magma King; desain lama: tikus tanah berhelm tambang): tiap giliranmu ia menggali cakar dari dinding kiri/kanan ruang balon di ketinggian acak (bergantian sisi). Balon yang sedang ditiup meletus kalau kena cakar; balon yang dilepas memantul di sekitarnya; duri juga memantul. Slam tiap 2 giliran musuh (fase 2: tiap giliran, cakar lebih panjang), panggil 2 tikus tiap 3 giliran. Rat King di gelombang 5 sama seperti dulu (slam + panggil tikus + fase 2).
+
+**Tembakan & peluru** (diukur dari video, M6.2; tempo diturunkan ke 2,0–2,4/detik di M8.1 karena terasa terlalu cepat): hero menembak satu per satu; balon penuh = 10 peluru; satu giliran ~10–18 peluru (video 9–15).
+
+**Sisa peluru**: terbawa ke gelombang berikutnya seperti di video (keputusanmu 2026-10-10, menggantikan sisa peluru → HP). Di akhir run hilang. Sumber HP sekarang hanya power-up heal, Lifesteal, Health Boost, dan Second Wind.
 
 **Angka utama** (`config.ts` / `levels.ts`): skala seperti video, peluru 30 damage, HP hero 300. Gembok 7/8/9/10/11/11/12/12/13/13. HP musuh: tikus 210, kelinci 120, babi 520, kelelawar 270, beruang 1240, Rat King 2100, Digger Mole 5200. Damage per serangan 16/12/30/18/46, slam 56/72. Koin: 22 per gelombang + 130 kalau menang (≈90 kalau kalah di gelombang 5, 350 kalau menang, mirip video).
 
@@ -76,6 +82,8 @@ Sumber: youtube.com/watch?v=AxqvqGEy6BU (22 menit, 3 run: kalah di gelombang 5, 
 3. Kartu balon lama (Thick Rubber, Slow Gears, Near-Miss Pro, Greedy, Big Lungs, Pierce, Twin Shot) dihapus supaya daftar sama dengan video. Mau ada yang dikembalikan?
 4. "BONUS" isi ulang tumpukan di video tidak punya padanan di balon, jadi dilewati.
 5. ~~Rapid Fire / Critical Shot~~ dan ~~es~~: tetap seperti sebelumnya (Crit Chance dari video; es = musuh lewat 1 serangan).
+6. Power-up: kapan dan berapa yang muncul (sekarang 2 per giliran, sisa diganti tiap giliran), dan variasi gerak (diam / melayang / berpindah) belum diputuskan.
+7. Visual gembok/rantai masih versi lama; mau dibuat lebih "menahan beban" (rantai menegang, gembok goyang makin dekat 0)?
 
 ## 0a. Aturan utama: referensi > brief (2026-10-08, kamu)
 

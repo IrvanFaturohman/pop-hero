@@ -18,6 +18,7 @@ Language: `README.md`, `DESIGN_NOTES.md` and `CHANGELOG.md` are written in Indon
 ## Commands
 
 ```bash
+npm run layerlab                         # copy Layer Lab art from the Unity project into public/assets/layerlab/ (gitignored)
 npm run dev                              # Vite dev server on :5173 (HMR)
 npm test                                 # Vitest, tests/**/*.test.ts
 npx vitest run tests/waves.test.ts       # one test file
@@ -52,7 +53,7 @@ node scripts/playtest.mjs [url]          # scripted hold/release playtest (needs
 - Damage numbers use the reference scale: bullets deal 10, hero HP is 300, enemy HP is in the hundreds. Percentage cards (Attack +15%, Multishot extras at 30%) rely on that granularity.
 - `tests/validator.test.ts` runs the spike-pattern validator (`logic/validator.ts`) on every pattern in `levels.ts`. Changing spike counts or speeds can make it fail, and that failure is a real balance signal.
 
-**Rendering.** The logical canvas is 720x1280, y pointing down, with all positions in `config.layout`. `main.ts` sizes the render buffer to the CSS size x DPR (capped at 2), and the camera zoom maps that back to logical space. There are no image or audio assets: textures are generated at boot (`view/textures*.ts`) and sounds are synthesized (`audio/synth.ts`). The Fredoka font is bundled via `@fontsource`.
+**Rendering.** The logical canvas is 720x1280, y pointing down, with all positions in `config.layout`. `main.ts` sizes the render buffer to the CSS size x DPR (capped at 2), and the camera zoom maps that back to logical space. Characters, monsters and UI use the Layer Lab packs from the Unity project (`scripts/layerlab-sync.mjs` copies them and writes `manifest.json`: part layouts from the prefabs, 9-slice borders from the `.meta` files). `view/layerlab.ts` loads them in Boot, `view/rig.ts` builds a character from its separate parts and animates it in code (the packs ship no animation clips), `view/gui.ts` has the UI blocks (9-slice buttons, panels, ribbons, bars, icons). Everything else (balloons, spikes, room, arena, effects) is still generated at boot (`view/textures*.ts`), and every Layer Lab view falls back to the procedural art when the files are missing. Sounds are synthesized (`audio/synth.ts`). The Fredoka font is bundled via `@fontsource`. `view/ninesliceFix.ts` patches a Phaser 3.90 NineSlice batching bug (slices on a batch boundary lose most of their triangles).
 
 **Lifecycle.** `scenes/services.ts` holds page-level singletons (input controller, debug panel) that survive `scene.restart()`. Scenes run Boot -> Title -> Home -> Game -> (result, CONTINUE) -> Home; the pause menu's HOME leaves a run without rewards. `storage.ts` stores the tutorial flag, pause-menu settings and the meta state (`pophero.meta`) in `localStorage`.
 
@@ -62,7 +63,7 @@ node scripts/playtest.mjs [url]          # scripted hold/release playtest (needs
 
 - Keep each file under about 400 lines (brief requirement). Split by responsibility instead of growing `GameScene.ts`, which already delegates to `gameUi`, `feedback` and `battleFeedback`.
 - When gameplay or numbers change, add a `CHANGELOG.md` entry (Indonesian) and update `DESIGN_NOTES.md` §0b if the current design summary changes.
-- New enemies, bosses and UI art are original designs drawn in code (`view/textures*.ts`), even when a mechanic comes from a reference video.
+- Characters and UI come from Layer Lab (user decision, 2026-10-10). Its raw files stay out of git (`public/assets/layerlab/` is gitignored: paid asset, public repo). Other art is drawn in code (`view/textures*.ts`).
 
 ## Working rules
 

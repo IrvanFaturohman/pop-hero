@@ -1,5 +1,34 @@
 # CHANGELOG
 
+## M8.1 — Style seragam, kamera ruang balon, tempo tembak — 2026-10-10
+
+- **Style disamakan ke Layer Lab**: arena pakai medan datar paket monster (latar teal `#6CB59F`, jalan pasir, batu, rumput, benteng goblin di kanan); ruang balon jadi panel gelap `#2C2D44` berdinding biru popup; tanah pasir gelap; balon dan duri flat dengan outline gelap tebal (tanpa gradasi glossy); power-up jadi tile bingkai skill + ikon paket (api, es, bom, hati, bintang), sama di ruang balon, di dalam balon, token, dan slot hero.
+- **Ruang balon lebih panjang** (dasar 1365) dan **kamera turun 150 px saat bukan fase battle** (permintaanmu); input dikoreksi sesuai geseran kamera. Bar HP boss dipindah ke celah antara slider wave dan jalan.
+- **Tembakan lebih lambat**: 2,0–2,4 tembakan/detik (dulu 2,8–3,5). Satu volley jadi lebih lama.
+
+## M8 — Art Layer Lab — 2026-10-10
+
+- **Karakter, monster, dan UI pakai paket Layer Lab** dari project Unity (permintaanmu): hero = tentara loreng (Minimal Characters `Man_08`), musuh dari Casual Monsters: tikus → goblin kuning, kelinci → goblin hijau, babi → stone slime, kelelawar → tengkorak pemanah (melayang), beruang → goblin warrior, elite → **Slime King** hijau, boss → **Magma King** (slime king oranye, mekanik cakar di ruang balon tetap).
+- **Animasi per bagian di kode** (paketnya tanpa klip animasi): karakter disusun dari bagian-bagiannya sesuai prefab Unity, lalu kaki melangkah saat jalan, badan bernapas, kepala sedikit telat, senjata menyentak saat menembak, condong + ayun saat menyerang, kedip putih saat kena, tint saat beku / terbakar.
+- **Semua layar dibangun ulang mengikuti panel demo GUI Pro-SuperCasual** (Settings, Lobby, Play_UI_Idle, Play_UI_ChoiceSkill, PopupDim_Play_Result_*): sprite, warna, ukuran, dan font diambil langsung dari prefab Unity (skala 720/1048). Font Sen ExtraBold + Cairo Black dengan outline tipis dan bayangan seperti material TMP-nya. HUD: pill bintang gelap, slider wave dengan badge (oranye = elite, merah = boss), tombol menu bulat gelap. Kartu kemampuan: banner gelap horizontal dengan bingkai skill + art, permata level, tombol harga. Pause: popup Settings biru dengan saklar ON/OFF. Hasil: badge sayap / tengkorak + pita VICTORY / DEFEAT, REWARDS, tile koin, statistik ringkas. Home: pita atas, banner chapter, tombol START tapered, bar menu bawah dengan tab fokus.
+- **Karakter tampil di ukuran asli** (art sumbernya kecil; di-scale jadi buram, permintaanmu). Akibatnya boss lebih kecil dari sebelumnya.
+- **Ruang balon menyempit** (dinding 60–660, dasar 1215) supaya tanah kelihatan di kiri, kanan, dan bawah seperti mesin capit.
+- `npm run layerlab` menyalin art ke `public/assets/layerlab/` (di-gitignore: aset berbayar, repo publik) + `manifest.json`. Tanpa folder itu, art prosedural lama tetap dipakai.
+- Perbaikan bug Phaser 3.90: 9-slice yang jatuh di batas batch WebGL kehilangan sebagian besar segitiganya.
+
+## M7 — Power-up di ruang balon — 2026-10-10
+
+Hasil brainstorming: dulu jenis balon diacak dan antreannya FIFO, jadi pemain cuma mikir "seberapa besar", tidak pernah "yang mana". Sekarang pemain mengarahkan balon ke power-up.
+
+- **Power-up melayang di ruang balon**: 2 per giliran (sisa giliran lalu diganti), di bawah rantai, bergoyang pelan, **kebal duri**. Balon yang dilepas dan terbang melewatinya membawanya (**maks 1 per balon**); balon yang sedang ditiup tidak mengambil. Jenis per gelombang tetap dari `levels.ts` (gelombang 1 hanya bintang). Antrean jenis balon di samping gembok dihapus; semua balon polos warna-warni.
+- **1 power-up = 1 peluru spesial** (seperti 1 bola di Claw Master), tidak lagi mengubah semua peluru balon: api = 1 peluru api (burn 30/giliran × 3), es = 1 peluru es (beku 1 serangan), bom = 1 bom 300 damage, heal = +60 HP tetap, bintang = +1★ / +1★ merah. Peluru spesial ditembak paling dulu dalam volley.
+- **Terlihat sepanjang jalan**: ikon power-up muncul di dalam balon + satu bola besar berwarna di antara bola peluru; saat pecah, power-up terbang ke hero sebagai token besar; di samping angka amunisi hero ada slot ikon peluru spesial yang menunggu volley. Ambil pertama kali: "+FIRE" dan "NEW!".
+- **Duri bisa meletuskan balon yang sedang terbang** (dulu kebal setelah dilepas). Begitu balon tergabung di bawah rantai, ia aman dan padat: duri memantul darinya (percikan + bunyi "tink"), balonnya berkilau perisai cyan.
+- **Angka di balon dihapus** (permintaanmu): isi balon hanya dibaca dari bola peluru di dalamnya (1 bola = 1 peluru, lebih besar, tersebar rata). Angka di gembok tetap.
+- **Sisa peluru terbawa ke gelombang berikutnya** (permintaanmu, seperti video), tidak lagi jadi HP. Animasi peluru → bar HP dan `config.leftover` dihapus.
+- Catatan balance: validator duri masih hanya mengukur balon yang ditiup, jadi peluang selamat sebenarnya sekarang lebih rendah dari angka validator. Tanpa sisa peluru → HP, hero kehilangan sumber pemulihan utama tapi mulai gelombang dengan peluru; simulasi bot belum diulang.
+- Unit test baru: spawn power-up, ambil saat terbang, letus saat terbang vs pantul saat tergabung, peluru spesial ditembak dulu, heal tetap.
+
 ## M6.2 — Tempo tembak & isi balon seperti video — 2026-10-09
 
 - Diukur frame per frame dari video (pill peluru di bawah hero): satu tembakan tiap ~0,37 s (**~2,7 tembakan/detik**), volley besar tidak lebih cepat; satu giliran ~9–15 peluru; peluru 30 damage, tikus ~7 tembakan.
