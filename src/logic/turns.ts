@@ -182,7 +182,7 @@ export class TurnRunner {
         }
         break;
       case 'clear':
-        if (this.timer >= t.clearTime && !b.cashingIn) {
+        if (this.timer >= t.clearTime) {
           this.go('cards');
           this.events.push({ type: 'cards' });
         }
@@ -220,7 +220,7 @@ export class TurnRunner {
       return;
     }
     this.go('clear');
-    this.battle.startCashIn();
+    this.battle.recordCarry();
     this.events.push({ type: 'waveClear', wave: this.waves.index });
   }
 

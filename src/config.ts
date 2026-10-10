@@ -10,12 +10,13 @@ export const config = {
     height: 1280,
     /** Where the dark earth under the road starts (the balloon room is dug into it). */
     roomTop: 640,
-    /** Playable room interior (balloons are clamped inside, spikes bounce off these walls). */
-    roomLeft: 20,
-    roomRight: 700,
+    /** Playable room interior (balloons are clamped inside, spikes bounce off these walls). Inset
+     *  from the screen edges so the earth shows around the room, like the claw machine. */
+    roomLeft: 60,
+    roomRight: 660,
     /** Ceiling for held balloons and the bulging chain (above the room's open top). */
     roomInnerTop: 604,
-    roomBottom: 1260,
+    roomBottom: 1365, // below the 1280 canvas: the camera pans down while you blow (camera.blowCenterY)
     /** The room has no top wall (reference): its open top, with the chain anchored across it. */
     roomOpenTop: 648,
     /** Gold chain + lock anchored on top of the side walls; released balloons push it up until it snaps. */
@@ -59,8 +60,8 @@ export const config = {
     riseFactorBig: 0.8, // kick multiplier at air = 1
     spawnTime: 0.15, // s visual pop-in at the tap point (inflation starts immediately)
     dragFollow: 28, // 1/s, how fast the held balloon follows the finger (higher = snappier)
-    // Released balloons are spike-proof (spikes bounce off them, like the reference). They float
-    // up (buoyancy), bump into each other (mass ~ size) and push the chain until it snaps.
+    // Released balloons float up (buoyancy), bump into each other (mass ~ size) and push the chain
+    // until it snaps. Spikes pop them on the way up; once gathered under the chain spikes bounce off.
     buoyancy: 1100, // px/s^2 upward pull on released balloons
     escapeBuoyancy: 2600, // px/s^2 once the chain snaps
     drag: 3, // 1/s velocity damping
@@ -77,9 +78,23 @@ export const config = {
     requireFreshPressAfterPop: true,
     /** Balloons that cannot pop on the very first run (tutorial). */
     tutorialProtected: 2,
-    /** Type weights (types unlock from wave 2, see levels.ts). */
-    typeWeights: { normal: 54, fire: 10, ice: 10, bomb: 7, heal: 7, star: 10, redstar: 2 },
-    queueSize: 3, // upcoming balloon types shown next to the lock
+  },
+
+  /**
+   * Power-ups float in the balloon room (immune to spikes). A released balloon that flies through
+   * one carries it (one per balloon) and adds one special shot to its bullets. Kinds per wave are
+   * in levels.ts.
+   */
+  powerUps: {
+    perTurn: 2, // spawned at the start of every blow phase (leftovers are replaced)
+    radius: 28, // px pickup radius, added to the balloon radius
+    minGap: 160, // px between power-ups
+    yMin: 200, // px below the chain (clear of the lock)
+    yMax: 400,
+    margin: 70, // px from the side walls
+    bobX: 14, // px drift
+    bobY: 10,
+    weights: { fire: 10, ice: 10, bomb: 7, heal: 7, star: 10, redstar: 2 },
   },
 
   bonus: {
@@ -122,8 +137,8 @@ export const config = {
     // Turn-based: the hero fires its whole ammo as one volley, one shot at a time like the
     // reference (~2.7 shots/s measured in the walkthrough; only very long volleys speed up a bit).
     volleyTime: 5, // s a full volley aims to take
-    minFireRate: 2.8, // shots per second
-    maxFireRate: 3.5,
+    minFireRate: 2.0, // shots per second (player: 2.8 felt too fast)
+    maxFireRate: 2.4,
     bulletSpeed: 1000, // px/s (bullets visibly fly, ~0.3 s to the front enemy)
     bulletDamage: 30, // before meta Damage upgrades and Attack Damage cards
     critMult: 2, // crit damage multiplier before Crit Damage cards
@@ -173,21 +188,12 @@ export const config = {
     reach: 0.42, // fraction of the room width
     reachPhase2: 0.55,
     yMin: 760, // px range for the claw height
-    yMax: 1150,
+    yMax: 1300,
     growTime: 0.55, // s to dig in
     retractTime: 0.3, // s to pull out
   },
 
   /** Turn flow: you blow one balloon -> hero fires the volley -> enemies step/attack -> repeat. */
-  /** Bullets carry over between turns (reference) but not between waves: on wave clear every
-   *  leftover bullet flows into the HP bar and the ammo starts again at 0. */
-  leftover: {
-    hpPerBullet: 3,
-    delay: 0.7, // s after "WAVE CLEAR" before the bullets start flowing
-    steps: 20, // the flow is split into at most this many chunks
-    interval: 0.05, // s between chunks
-  },
-
   turns: {
     // Balloons per turn to open the lock; 0 = no limit (player request): keep blowing until the
     // lock opens, popped balloons only cost time.
@@ -265,14 +271,14 @@ export const config = {
     rankReward: 100, // coins when the hero ranks up
   },
 
-  /** Special balloon effects (from wave 2). Turn-based versions of the brief's timings. */
+  /** Power-up effects: each power-up is one special shot (reference: one claw ball = one bullet). */
   effects: {
-    burnDamage: 10, // per enemy turn
+    burnDamage: 30, // per enemy turn (fire shot)
     burnTurns: 3,
-    bombDamageMult: 55, // bomb damage = balloon number x this
+    bombDamage: 300, // bomb shot, before Attack Damage
     bombRadius: 90, // px
     bombFlight: 0.5, // s
-    healMult: 6.5, // heal = balloon number x this
+    heal: 60, // HP from a heal power-up
   },
 
   /** The chain (verlet rope) the balloons push against. */
@@ -286,7 +292,9 @@ export const config = {
   },
 
   /** Camera moves into the battle while the hero fires / enemies act (like the reference). */
-  camera: { battleZoom: 1.16, battleCenterY: 470, speed: 5 },
+  /** Battle phases zoom into the arena; the rest of the time the view sits lower so the (longer)
+   *  balloon room fits (player request). */
+  camera: { battleZoom: 1.16, battleCenterY: 470, blowCenterY: 790, speed: 5 },
 
   haptics: { enabled: true, tierUp: 15, spikePop: 40, heroHurt: 25 }, // ms
 
@@ -309,6 +317,8 @@ export const config = {
       overinflate_pop: 0.7,
       near_miss: 0.35,
       plop: 0.3,
+      power_up: 0.4,
+      deflect: 0.25,
       shoot: 0.08,
       empty_click: 0.3,
       hit: 0.14,
@@ -335,8 +345,8 @@ export const config = {
     } as Record<string, number>,
   },
 
-  // Art direction follows the references: forest strip + dirt road + dark earth (Claw Master),
-  // gray balloon room with cyan walls, pink balloons and red spike stars (Puff Up). All drawn in code.
+  // Art direction: Layer Lab's flat look (monster pack battlefield colors, GUI pack frames, near-black
+  // outlines). The forest colors are only used by the procedural fallback arena.
   palette: {
     skyTop: '#A9EEF0',
     skyBottom: '#5FC8CD',
@@ -345,19 +355,21 @@ export const config = {
     treeNear: '#21777A',
     bush: '#1B6366',
     grass: '#2E8B57',
-    road: '#CBC2B5',
-    roadLine: '#B6AC9F',
-    earth: '#4E3B37',
-    earthSpot: '#443330',
+    road: '#CBB188', // monster pack bg_road_color
+    roadLine: '#B89C70',
+    /** Monster pack bg_color: the flat battlefield backdrop. */
+    field: '#6CB59F',
+    earth: '#8F7149',
+    earthSpot: '#836641',
     ground: '#7BD389',
     groundDark: '#5FBF72',
-    room: '#86868D',
-    roomGrid: '#7C7C83',
-    roomWall: '#4FDDF5',
-    roomWallDark: '#2AA9C2',
+    room: '#2C2D44', // GUI pack banner frame
+    roomGrid: '#25263A',
+    roomWall: '#0E7FF2', // GUI pack popup top bar
+    roomWallDark: '#0A61D3',
     danger: '#FF3B3B',
     gold: '#FFD23F',
-    outline: '#22163F',
+    outline: '#14141F',
     spikeBody: '#E53935',
     spikeCore: '#A51D1D',
     spikeTip: '#FF6B6B',
@@ -383,6 +395,8 @@ export const config = {
     balloonHeal: '#3DDC84',
     balloonStar: '#FFC21F',
     balloonRedStar: '#F4F1FA',
+    /** Shimmer on gathered balloons (safe from spikes). */
+    shield: '#9FE8FF',
     text: '#FFFFFF',
   },
 

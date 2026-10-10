@@ -15,9 +15,8 @@ export interface RunStats {
   locksOpened: number;
   locksFailed: number;
   damageTaken: number;
-  /** Bullets left at each wave clear (turned into HP). */
+  /** Bullets carried into the next wave at each wave clear. */
   leftoverPerWave: number[];
-  hpFromLeftover: number;
   /** Ability picks in order, e.g. "attack:2", "evo:execution". */
   upgrades: string[];
   starsCollected: { stars: number; redStars: number };
@@ -36,7 +35,6 @@ export interface RunInfo {
   locksFailed: number;
   damageTaken: number;
   leftoverPerWave: readonly number[];
-  hpFromLeftover: number;
   upgrades: readonly string[];
   stars: { stars: number; redStars: number };
   coins: number;
@@ -63,7 +61,6 @@ export function buildStats(room: RoomStats, info: RunInfo): RunStats {
     locksFailed: info.locksFailed,
     damageTaken: Math.round(info.damageTaken),
     leftoverPerWave: [...info.leftoverPerWave],
-    hpFromLeftover: Math.round(info.hpFromLeftover),
     upgrades: [...info.upgrades],
     starsCollected: { ...info.stars },
     coinsEarned: info.coins,

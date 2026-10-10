@@ -249,7 +249,7 @@ export class DebugPanel {
     addNumbers(tf, config.turns, { balloonsPerTurn: [0, 6, 1], unlockDelay: [0, 2, 0.05], enemyDelay: [0, 2, 0.05], clearTime: [0.5, 5, 0.1] });
     for (const k of ['ratking', 'mole'] as const) addNumbers(tf, config.bosses[k], { slamEvery: [1, 6, 1], summonEvery: [1, 8, 1], summonCount: [0, 8, 1] });
     addNumbers(tf, config.rope, { slack: [1, 1.3, 0.005], gravity: [0, 1500, 10], iterations: [1, 40, 1], pointShare: [0.1, 1, 0.05] });
-    addNumbers(tf, config.effects, { burnDamage: [0, 100, 1], burnTurns: [1, 6, 1], bombDamageMult: [0, 200, 1], bombRadius: [20, 300, 5], healMult: [0, 20, 0.1] });
+    addNumbers(tf, config.effects, { burnDamage: [0, 100, 1], burnTurns: [1, 6, 1], bombDamage: [0, 1000, 10], bombRadius: [20, 300, 5], heal: [0, 200, 5] });
     addNumbers(tf, config.camera, { battleZoom: [1, 1.6, 0.01], battleCenterY: [200, 800, 5] });
   }
 

@@ -27,7 +27,7 @@ export interface WaveDef {
   /** Lock number each turn: your balloons must add up to at least this to open it and fire. */
   lock: number;
   pattern: string;
-  /** Balloon types that can roll this wave. */
+  /** Power-up kinds that can spawn in the balloon room this wave ('normal' adds nothing). */
   balloonTypes: BalloonType[];
   /** Elite / boss wave: the boss drops in behind the group. */
   boss?: WaveBoss;
@@ -46,7 +46,7 @@ const B = {
   a: { x: 130, y: 760, angle: 35 },
   b: { x: 590, y: 880, angle: 148 },
   c: { x: 250, y: 1160, angle: 302 },
-  d: { x: 520, y: 1200, angle: 222 },
+  d: { x: 520, y: 1170, angle: 222 },
   e: { x: 360, y: 960, angle: 74 },
 };
 
@@ -55,7 +55,8 @@ function bouncers(speed: number, ...starts: Array<{ x: number; y: number; angle:
 }
 
 // Spikes are balls bouncing off the room walls (player request, replaces the brief's spinners).
-// Validator (9 tap points x 24 phases, inflating only: released balloons are spike-proof),
+// Validator (9 tap points x 24 phases, inflating only: it does not model spikes popping released
+// balloons on the way up, so real survival is lower),
 // survival at air 0.3/0.5/0.7/0.9 in comments.
 export const patterns: Record<string, SpikePattern> = {
   w1: { id: 'w1', name: 'Wave 1', speedMult: 1, spikes: bouncers(200, B.a, B.b) }, // 86/76/66/53

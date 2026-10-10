@@ -1,19 +1,25 @@
 // The balloon room: tap -> balloon appears at the finger, inflates and can be dragged (spikes pop
-// it) -> release -> it floats up (spike-proof), joins the group pushing the gold chain and counts
-// toward the lock -> lock opens -> chain snaps -> balloons escape upward and burst over the hero.
+// it) -> release -> it floats up (spikes still pop it; flying through a power-up picks it up),
+// joins the group pushing the gold chain (now safe: spikes glance off it) and counts toward the
+// lock -> lock opens -> chain snaps -> balloons escape upward and burst over the hero.
 // Pure logic. Emits events that the scene turns into visuals/sound.
 import { config } from '../config';
-import { Balloon, BALLOON_TYPES, bonusAmount, tierFor, type BalloonMods, type BalloonType } from './balloon';
+import { Balloon, bonusAmount, tierFor, type BalloonMods, type BalloonType } from './balloon';
 import { clamp01 } from './math';
 import type { Rng } from './rng';
 import { Claw, clawPoint } from './claw';
 import { BalloonPhysics, shoveSpikes } from './physics';
+import { PowerUpField, type PowerKind } from './powerups';
 import { SpikeField, closest, type SpikePattern } from './spikes';
 
 export type PopCause = 'spikeGrow' | 'spikeFly' | 'overinflate';
 
 export type RoomEvent =
-  | { type: 'spawn'; b: Balloon; isNew: boolean }
+  | { type: 'spawn'; b: Balloon }
+  /** A flying balloon picked up a power-up (isNew: first of its kind this run). */
+  | { type: 'powerUp'; b: Balloon; kind: PowerKind; x: number; y: number; isNew: boolean }
+  /** A bouncing spike glanced off a gathered (safe) balloon. */
+  | { type: 'deflect'; b: Balloon; x: number; y: number }
   | { type: 'blowStart'; b: Balloon }
   | { type: 'blowStop'; b: Balloon }
   | { type: 'ammoTick'; b: Balloon; ammo: number }
@@ -74,6 +80,7 @@ export interface RoomStats {
   releaseAirs: number[];
   close: number;
   perfect: number;
+  powerUps: number;
 }
 
 export const newRoomStats = (): RoomStats => ({
@@ -85,6 +92,7 @@ export const newRoomStats = (): RoomStats => ({
   releaseAirs: [],
   close: 0,
   perfect: 0,
+  powerUps: 0,
 });
 
 export class BalloonRoom {
@@ -98,11 +106,8 @@ export class BalloonRoom {
   readonly flying: Balloon[] = [];
   stats = newRoomStats();
   attached: Balloon | null = null;
-  /** Upcoming balloon types (visible queue). */
-  readonly queue: BalloonType[] = [];
-  /** Types allowed to roll (set per wave). */
-  typePool: BalloonType[] = ['normal'];
-  readonly seenTypes = new Set<BalloonType>(['normal']);
+  readonly powerUps = new PowerUpField();
+  readonly seenPowers = new Set<PowerKind>();
   /** Cooldown before the next balloon can be blown (s). */
   spawnTimer = 0;
   /** Turn gate: a new balloon may only appear while armed. */
@@ -119,7 +124,6 @@ export class BalloonRoom {
 
   constructor(rng: Rng) {
     this.rng = rng;
-    this.refillQueue();
   }
 
   /** Clears events; call after the scene has consumed them. */
@@ -136,12 +140,9 @@ export class BalloonRoom {
     }
   }
 
-  setTypePool(types: BalloonType[]): void {
-    this.typePool = types.length > 0 ? types : ['normal'];
-    // Re-roll queued types that are no longer allowed.
-    for (let i = 0; i < this.queue.length; i++) {
-      if (!this.typePool.includes(this.queue[i])) this.queue[i] = this.rollType();
-    }
+  /** Power-up kinds that can spawn this wave (takes effect on the next turn). */
+  setTypePool(types: readonly BalloonType[]): void {
+    this.powerUps.setPool(types);
   }
 
   step(dt: number, input: RoomInput): void {
@@ -153,6 +154,7 @@ export class BalloonRoom {
 
     this.heldNow = input.held;
     this.field.step(dt);
+    this.powerUps.step(dt);
     this.claw.step(dt);
     if (this.claw.active) for (const s of this.field.spikes) this.claw.bounce(s);
     if (input.pressed) this.holdValid = true;
@@ -185,7 +187,7 @@ export class BalloonRoom {
     this.physics.step(this.flying, this.attached, dt, this.claw);
     const burstY = config.layout.burstY;
     for (const b of this.flying) {
-      if (b.state === 'flying') b.flyT += dt;
+      if (b.state === 'flying') this.stepFlying(b, dt);
       if (b.state === 'flying' && (this.physics.joined(b, this.flying) || b.flyT > config.balloon.stuckTime)) this.park(b);
       else if (b.state === 'escaping' && b.y < burstY) {
         b.state = 'done';
@@ -193,7 +195,21 @@ export class BalloonRoom {
       }
     }
     if (this.attached) this.checkSpikes(this.attached);
-    shoveSpikes(this.field, this.flying);
+    shoveSpikes(this.field, this.flying, (b, x, y) => this.events.push({ type: 'deflect', b, x, y }));
+  }
+
+  /** Rising balloon: spikes can still pop it; the first power-up it touches rides along. */
+  private stepFlying(b: Balloon, dt: number): void {
+    b.flyT += dt;
+    this.checkSpikes(b);
+    if (b.state !== 'flying' || b.type !== 'normal') return;
+    const p = this.powerUps.take(b);
+    if (!p) return;
+    b.type = p.kind;
+    this.stats.powerUps++;
+    const isNew = !this.seenPowers.has(p.kind);
+    this.seenPowers.add(p.kind);
+    this.events.push({ type: 'powerUp', b, kind: p.kind, x: p.x, y: p.y, isNew });
   }
 
   /** Lock open: the chain snaps and every gathered balloon escapes upward. */
@@ -213,11 +229,12 @@ export class BalloonRoom {
     return false;
   }
 
-  /** New turn: a fresh chain with this lock number drops in. */
+  /** New turn: a fresh chain with this lock number drops in, and a fresh set of power-ups. */
   setLock(n: number): void {
     this.lockTarget = n;
     this.lockLeft = n;
     this.physics.rope.reset();
+    this.powerUps.refill(this.rng);
   }
 
   get lockOpen(): boolean {
@@ -242,7 +259,7 @@ export class BalloonRoom {
     return this.attached !== null || this.anyInRoom();
   }
 
-  /** True while a released balloon is still rising through the room (exposed to spikes). */
+  /** True while a released balloon is still rising through the room (spikes can pop it). */
   anyInRoom(): boolean {
     for (const b of this.flying) if (b.state === 'flying') return true;
     return false;
@@ -374,9 +391,7 @@ export class BalloonRoom {
   }
 
   private spawn(x: number, y: number): void {
-    const type = this.queue.shift() ?? 'normal';
-    this.refillQueue();
-    const b = new Balloon(type, x, y);
+    const b = new Balloon('normal', x, y);
     // colorful: a different color than the previous balloon
     const nColors = config.palette.balloonColors.length;
     b.tint = (this.lastTint + 1 + this.rng.int(0, nColors - 2)) % nColors;
@@ -388,18 +403,7 @@ export class BalloonRoom {
       this.protectedLeft--;
     }
     b.shield = this.mods.shields;
-    const isNew = !this.seenTypes.has(type);
-    this.seenTypes.add(type);
     this.attached = b;
-    this.events.push({ type: 'spawn', b, isNew });
-  }
-
-  private refillQueue(): void {
-    while (this.queue.length < config.spawn.queueSize) this.queue.push(this.rollType());
-  }
-
-  private rollType(): BalloonType {
-    const pool = BALLOON_TYPES.filter((t) => this.typePool.includes(t));
-    return pool.length <= 1 ? pool[0] ?? 'normal' : this.rng.weighted(config.spawn.typeWeights, pool);
+    this.events.push({ type: 'spawn', b });
   }
 }

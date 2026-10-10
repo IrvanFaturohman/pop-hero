@@ -25,9 +25,6 @@ export type BattleEvent =
   | { type: 'bossSlam'; e: Enemy; dmg: number }
   | { type: 'bossPhase2'; e: Enemy }
   | { type: 'heroDead' }
-  /** Wave clear: a chunk of leftover bullets flowed into the HP bar / all of it is done. */
-  | { type: 'cashIn'; amount: number; index: number }
-  | { type: 'cashInDone'; bullets: number; hp: number }
   | { type: 'empty' }
   /** One bullet-ball token from an arrived balloon reached the hero. */
   | { type: 'ammoLand'; index: number; amount: number };
@@ -98,6 +95,9 @@ export interface Delivery {
   index: number;
   kind: AmmoKind | 'bomb' | 'heal';
 }
+
+/** A power-up shot waiting for the next volley (fired before the normal bullets). */
+export type SpecialShot = 'fire' | 'ice' | 'bomb';
 
 export interface PendingAttack {
   t: number;

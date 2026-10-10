@@ -95,10 +95,19 @@ export class BalloonPhysics {
   }
 }
 
-/** Released balloons are spike-proof: bouncing spikes get shoved away instead. */
-export function shoveSpikes(field: SpikeField, list: readonly Balloon[]): void {
+/**
+ * Gathered (and escaping) balloons are safe and solid: bouncing spikes glance off them. Rising
+ * balloons are not shoved here, the room checks them for pops instead.
+ */
+export function shoveSpikes(field: SpikeField, list: readonly Balloon[], onDeflect?: (b: Balloon, x: number, y: number) => void): void {
   if (!field.enabled) return;
   for (const s of field.spikes) {
-    for (const b of list) if (isFree(b)) s.pushFrom(b.x, b.y, b.hitR);
+    for (const b of list) {
+      if (b.state !== 'parked' && b.state !== 'escaping') continue;
+      if (!s.pushFrom(b.x, b.y, b.hitR)) continue;
+      // contact point on the balloon's edge, toward the spike
+      const d = Math.hypot(s.bx - b.x, s.by - b.y) || 1;
+      onDeflect?.(b, b.x + ((s.bx - b.x) / d) * b.r, b.y + ((s.by - b.y) / d) * b.r);
+    }
   }
 }

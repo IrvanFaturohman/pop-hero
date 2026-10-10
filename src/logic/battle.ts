@@ -4,7 +4,7 @@
 // (HeroBase) and the ability cards (HeroMods). Pure logic, deterministic for a given seed.
 import { config } from '../config';
 import { isBossKind, type BossKind, type EnemyKind } from '../levels';
-import { AmmoPool, type AmmoKind } from './ammo';
+import { AmmoPool } from './ammo';
 import type { BalloonType } from './balloon';
 import { baseMods, tokenCount, tokenDelay, type BattleEvent, type Bomb, type Bullet, type Delivery, type HeroMods, type PendingAttack } from './battleTypes';
 import { BossBrain } from './boss';
@@ -43,10 +43,8 @@ export class Battle {
   private enemyTurnT = -1;
   private enemyTurnEnd = 0;
   private bossWasMoving = false;
-  private cash = { left: 0, timer: 0, chunk: 1, bullets: 0, healed: 0, index: 0 };
-  /** Telemetry: leftover bullets at each wave clear and the HP they turned into. */
+  /** Telemetry: bullets carried into the next wave at each wave clear. */
   readonly leftoverPerWave: number[] = [];
-  hpFromLeftover = 0;
 
   constructor(rng: Rng, base?: HeroBase) {
     this.bulletDamage = base?.bulletDamage ?? config.hero.bulletDamage;
@@ -146,18 +144,20 @@ export class Battle {
     }
   }
 
-  /** A balloon burst over the hero: bullets land token by token; bombs/heals arrive as one. */
-  deliver(total: number, type: BalloonType): void {
-    if (type === 'bomb' || type === 'heal') {
-      this.deliveries.push({ t: tokenDelay(0), amount: total, index: 0, kind: type });
-      return;
+  /**
+   * A balloon burst over the hero: its normal bullets land token by token. A power-up it carried
+   * lands first as one special shot (fire / ice / bomb) or an instant heal; stars are run currency
+   * and handled by the scene.
+   */
+  deliver(total: number, power: BalloonType): void {
+    if (power === 'fire' || power === 'ice' || power === 'bomb' || power === 'heal') {
+      this.deliveries.push({ t: tokenDelay(0), amount: 1, index: 0, kind: power });
     }
-    const kind: AmmoKind = type === 'fire' || type === 'ice' ? type : 'normal';
     const n = tokenCount(total);
     const base = Math.floor(total / n);
     let extra = total - base * n;
     for (let i = 0; i < n; i++) {
-      this.deliveries.push({ t: tokenDelay(i), amount: base + (extra-- > 0 ? 1 : 0), index: i, kind });
+      this.deliveries.push({ t: tokenDelay(i), amount: base + (extra-- > 0 ? 1 : 0), index: i, kind: 'normal' });
     }
   }
 
@@ -232,7 +232,6 @@ export class Battle {
     for (const e of this.enemies) e.savePrev();
     this.weapons.savePrev();
     this.stepDeliveries(dt);
-    this.stepCashIn(dt);
     for (const e of this.enemies) e.step(dt);
     if (this.boss && this.bossWasMoving && !this.boss.e.moving) {
       this.bossWasMoving = false;
@@ -248,56 +247,16 @@ export class Battle {
       dl.t -= dt;
       if (dl.t > 0) continue;
       this.deliveries.splice(i, 1);
-      if (dl.kind === 'bomb') this.weapons.bombsReady.push(Math.round(dl.amount * config.effects.bombDamageMult));
-      else if (dl.kind === 'heal') this.heal(Math.round(dl.amount * config.effects.healMult));
-      else this.ammoPool.add(dl.kind, dl.amount);
+      if (dl.kind === 'heal') this.heal(config.effects.heal);
+      else if (dl.kind === 'normal') this.ammoPool.add('normal', dl.amount);
+      else this.weapons.specials.push(dl.kind);
       this.events.push({ type: 'ammoLand', index: dl.index, amount: dl.amount });
     }
   }
 
-  /**
-   * Wave clear: bullets carry over between turns (reference) but not between waves. Every leftover
-   * bullet flows into the HP bar (`leftover.hpPerBullet` HP each), a chunk at a time so the view
-   * can animate it; the ammo ends at 0.
-   */
-  startCashIn(): void {
-    const n = this.ammoPool.total;
-    const c = this.cash;
-    this.leftoverPerWave.push(n);
-    c.left = n;
-    c.timer = config.leftover.delay;
-    c.chunk = Math.max(1, Math.ceil(n / config.leftover.steps));
-    c.bullets = 0;
-    c.healed = 0;
-    c.index = 0;
-  }
-
-  get cashingIn(): boolean {
-    return this.cash.left > 0;
-  }
-
-  private stepCashIn(dt: number): void {
-    const c = this.cash;
-    if (c.left <= 0) return;
-    c.timer -= dt;
-    while (c.timer <= 0 && c.left > 0) {
-      const n = Math.min(c.left, c.chunk);
-      const before = Math.floor(c.bullets * config.leftover.hpPerBullet);
-      this.ammoPool.drop(n);
-      c.left -= n;
-      c.bullets += n;
-      const gain = Math.floor(c.bullets * config.leftover.hpPerBullet) - before;
-      // silent heal: the view shows one "+N HP" at the end instead of a popup per chunk
-      const hp = this.dead ? this.hp : Math.min(this.maxHp, this.hp + gain);
-      c.healed += hp - this.hp;
-      this.hp = hp;
-      this.events.push({ type: 'cashIn', amount: n, index: c.index++ });
-      c.timer += config.leftover.interval;
-    }
-    if (c.left <= 0) {
-      this.hpFromLeftover += c.healed;
-      this.events.push({ type: 'cashInDone', bullets: c.bullets, hp: c.healed });
-    }
+  /** Wave clear: leftover bullets stay with the hero for the next wave (reference). */
+  recordCarry(): void {
+    this.leftoverPerWave.push(this.ammoPool.total);
   }
 
   private stepEnemyTurn(dt: number): void {

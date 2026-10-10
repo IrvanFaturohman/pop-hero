@@ -1,10 +1,10 @@
-// The hero's weapons: one volley per turn (bombs first, then every bullet), shaped by the ability
-// cards (damage, crit + Execution, Multishot extra shots, Bounce / Ricochet, Knockback stuns) and
-// fire/ice bullet effects. Pure logic.
+// The hero's weapons: one volley per turn (power-up shots first: bombs, then fire / ice bullets,
+// then every normal bullet), shaped by the ability cards (damage, crit + Execution, Multishot
+// extra shots, Bounce / Ricochet, Knockback stuns). Pure logic.
 import { config } from '../config';
 import { isBossKind } from '../levels';
 import type { AmmoKind, AmmoPool } from './ammo';
-import { MAX_BULLETS, type BattleEvent, type Bomb, type Bullet, type HeroMods } from './battleTypes';
+import { MAX_BULLETS, type BattleEvent, type Bomb, type Bullet, type HeroMods, type SpecialShot } from './battleTypes';
 import type { Enemy } from './enemies';
 import { clamp } from './math';
 import type { Rng } from './rng';
@@ -27,8 +27,10 @@ export interface WeaponHost {
 export class Weapons {
   readonly bullets: Bullet[] = [];
   readonly bombs: Bomb[] = [];
-  /** Bomb damages waiting to be thrown on the next volley. */
-  readonly bombsReady: number[] = [];
+  /** Power-up shots waiting for the next volley (the hero view shows them next to the counter). */
+  readonly specials: SpecialShot[] = [];
+  /** Fire / ice shots of the current volley, fired before the normal bullets. */
+  private specialShots: AmmoKind[] = [];
   private firing = false;
   private fireTimer = 0;
   private fireRate = 8;
@@ -63,9 +65,12 @@ export class Weapons {
   startVolley(): void {
     const h = this.host;
     this.volley++;
-    for (const dmg of this.bombsReady) this.throwBomb(dmg);
-    this.bombsReady.length = 0;
-    const shots = config.debug.infiniteAmmo ? 30 : h.ammoPool.total;
+    for (const s of this.specials) {
+      if (s === 'bomb') this.throwBomb(config.effects.bombDamage);
+      else this.specialShots.push(s);
+    }
+    this.specials.length = 0;
+    const shots = (config.debug.infiniteAmmo ? 30 : h.ammoPool.total) + this.specialShots.length;
     if (shots <= 0) {
       if (h.target() && this.bombs.length === 0) h.events.push({ type: 'empty' });
       return;
@@ -127,18 +132,25 @@ export class Weapons {
     const h = this.host;
     const t = h.target();
     if (!t || this.volleyLeft <= 0) {
-      this.firing = false;
+      this.stopFiring();
       return;
     }
     const extra = h.mods.extraShots;
     this.fireTimer -= dt;
     while (this.fireTimer <= 0 && this.volleyLeft > 0) {
-      const kind: AmmoKind = config.debug.infiniteAmmo && h.ammoPool.total <= 0 ? 'normal' : h.ammoPool.take();
+      const kind: AmmoKind = this.specialShots.shift() ?? (config.debug.infiniteAmmo && h.ammoPool.total <= 0 ? 'normal' : h.ammoPool.take());
       for (let k = 0; k <= extra; k++) this.fire(t, kind, k);
       this.volleyLeft--;
       this.fireTimer += (1 + extra) / this.fireRate;
     }
-    if (this.volleyLeft <= 0) this.firing = false;
+    if (this.volleyLeft <= 0) this.stopFiring();
+  }
+
+  /** Unfired power-up shots (no target left) wait for the next volley. */
+  private stopFiring(): void {
+    this.firing = false;
+    for (const k of this.specialShots) if (k !== 'normal') this.specials.push(k);
+    this.specialShots.length = 0;
   }
 
   /** Shot k = 0 is the bullet itself; k >= 1 are Multishot extras (weaker, fanned out). */
